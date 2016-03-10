@@ -7,10 +7,9 @@ TEMPLATE = app
 QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE += -O3
 
-INCLUDEPATH += /usr/local/Cellar/cgal/4.7/include \
-    /usr/local/Cellar/boost/1.60.0/include/
+INCLUDEPATH += /usr/local/include
 
-LIBS += -L"/usr/local/Cellar/cgal/4.7/lib" -lCGAL
+LIBS += -L"/usr/local/lib" -lCGAL
 
 SOURCES += \
     ../src/app.cpp\

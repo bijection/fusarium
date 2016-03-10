@@ -1,5 +1,51 @@
 #include "loader.h"
 
+#include <fstream>
+#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
+#include <CGAL/Polyhedron_incremental_builder_3.h>
+#include <CGAL/Polyhedron_3.h>
+#include <CGAL/IO/Polyhedron_iostream.h>
+#include <CGAL/Nef_polyhedron_3.h>
+
+typedef CGAL::Exact_predicates_exact_constructions_kernel      Kernel;
+typedef CGAL::Polyhedron_3<Kernel>         Polyhedron;
+typedef Polyhedron::HalfedgeDS             HalfedgeDS;
+typedef CGAL::Nef_polyhedron_3<Kernel>     Nef_polyhedron_3;
+
+// http://jamesgregson.blogspot.com/2012/05/example-code-for-building.html
+template<class HDS>
+class polyhedron_builder : public CGAL::Modifier_base<HDS> {
+public:
+    std::vector<GLfloat> &coords;
+    std::vector<GLuint>    &tris;
+    polyhedron_builder( std::vector<GLfloat> &_coords, std::vector<GLuint> &_tris ) : coords(_coords), tris(_tris) {}
+    void operator()( HDS& hds) {
+        typedef typename HDS::Vertex Vertex;
+        typedef typename Vertex::Point Point;
+
+    // create a cgal incremental builder
+        CGAL::Polyhedron_incremental_builder_3<HDS> B( hds, true);
+        B.begin_surface( coords.size()/3, tris.size()/3 );
+
+        // add the polyhedron vertices
+        for( int i=0; i<(int)coords.size(); i+=3 ){
+            B.add_vertex( Point( coords[i+0], coords[i+1], coords[i+2] ) );
+        }
+
+        // add the polyhedron triangles
+        for( int i=0; i<(int)tris.size(); i+=3 ){
+            B.begin_facet();
+            B.add_vertex_to_facet( tris[i+0] );
+            B.add_vertex_to_facet( tris[i+1] );
+            B.add_vertex_to_facet( tris[i+2] );
+            B.end_facet();
+        }
+
+        // finish up the surface
+        B.end_surface();
+    }
+};
+
 Loader::Loader(QObject* parent, const QString& filename)
     : QThread(parent), filename(filename)
 {
@@ -123,6 +169,17 @@ Mesh* Loader::load_stl()
         flat_verts.push_back(v.first.y);
         flat_verts.push_back(v.first.z);
     }
+
+    Polyhedron P;
+    polyhedron_builder<HalfedgeDS> builder(flat_verts, indices );
+    P.delegate( builder );
+
+    Nef_polyhedron_3 Np (P);
+
+    // write the polyhedron out as a .OFF file
+    std::ofstream os("dump.off");
+    os << P;
+    os.close();
 
     return new Mesh(flat_verts, indices);
 }
