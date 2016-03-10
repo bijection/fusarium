@@ -9,7 +9,7 @@ QMAKE_CXXFLAGS_RELEASE += -O3
 
 INCLUDEPATH += /usr/local/include
 
-LIBS += -L"/usr/local/lib" -lCGAL
+LIBS += -L"/usr/local/lib" -lCGAL -lboost_thread-mt -lgmp -lmpfr
 
 SOURCES += \
     ../src/app.cpp\
