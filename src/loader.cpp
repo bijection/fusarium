@@ -1,16 +1,25 @@
 #include "loader.h"
 
 #include <fstream>
-#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
-#include <CGAL/Polyhedron_incremental_builder_3.h>
+#include <CGAL/Gmpq.h>
+#include <CGAL/Extended_cartesian.h>
+#include <CGAL/Nef_polyhedron_3.h>
 #include <CGAL/Polyhedron_3.h>
 #include <CGAL/IO/Polyhedron_iostream.h>
 #include <CGAL/Nef_polyhedron_3.h>
+// #include <CGAL/Cartesian_converter.h>
 
-typedef CGAL::Exact_predicates_exact_constructions_kernel      Kernel;
+typedef CGAL::Extended_cartesian< CGAL::Lazy_exact_nt<CGAL::Gmpq> > Kernel;
+// typedef CGAL::Simple_cartesian<double>                           DoubleKernel;
+// typedef CGAL::Cartesian_converter<Kernel, DoubleKernel>                         ConverterToDouble;
+typedef CGAL::Nef_polyhedron_3<Kernel>  Nef_polyhedron;
 typedef CGAL::Polyhedron_3<Kernel>         Polyhedron;
 typedef Polyhedron::HalfedgeDS             HalfedgeDS;
 typedef CGAL::Nef_polyhedron_3<Kernel>     Nef_polyhedron_3;
+typedef Nef_polyhedron_3::Plane_3  Plane_3;
+typedef Polyhedron::Facet_iterator Facet_iterator;
+typedef Polyhedron::Halfedge_handle Halfedge_handle;
+typedef Polyhedron::Vertex_handle Vertex_handle;
 
 // http://jamesgregson.blogspot.com/2012/05/example-code-for-building.html
 template<class HDS>
@@ -170,17 +179,79 @@ Mesh* Loader::load_stl()
         flat_verts.push_back(v.first.z);
     }
 
-    Polyhedron P;
+    Polyhedron P_init, P_final;
     polyhedron_builder<HalfedgeDS> builder(flat_verts, indices );
-    P.delegate( builder );
+    P_init.delegate( builder );
 
-    Nef_polyhedron_3 Np (P);
+    if (P_init.is_closed()) {
+        Nef_polyhedron_3 Np (P_init);
+        Nef_polyhedron_3 Plane (Plane_3(0,0,1,0));
+        Nef_polyhedron_3 Intersect = Np * Plane;
 
-    // write the polyhedron out as a .OFF file
-    std::ofstream os("dump.off");
-    os << P;
-    os.close();
+        if (Intersect.is_simple()) {
+            Intersect.convert_to_polyhedron(P_final);
+            // write the polyhedron out as a .OFF file
+            std::ofstream os("dump.off");
+            os << P_final;
+            os.close();
 
+            // Container holding last line read
+            std::string readLine;
+            // Open file for reading
+            std::ifstream in("dump.off");
+
+            // Check if file is in OFF format
+            getline(in,readLine);
+            if (readLine == "OFF") {
+                int MAX_BUFFER_SIZE = 1000;
+                char buffer[MAX_BUFFER_SIZE];
+
+                // Read values for Nv and Nf
+                int nv, nf;
+                in.getline(buffer, MAX_BUFFER_SIZE);
+                std::stringstream ss(buffer);
+                ss >> nv >> nf;
+
+                // skip blank line
+                getline(in,readLine);
+
+                // read the vertices
+                std::vector<GLfloat> new_verts;
+                new_verts.reserve(nv);
+                for (int n=0; n<nv; n++) {
+                   in.getline(buffer, MAX_BUFFER_SIZE);
+                   std::stringstream ss(buffer);
+                   GLfloat x, y, z;
+                   ss >> x >> y >> z;
+                   new_verts.push_back(x);
+                   new_verts.push_back(y);
+                   new_verts.push_back(z);
+                }
+
+                // read the faces
+                std::vector<GLuint> new_faces;
+                new_faces.reserve(nf * 3);
+                for (int n=0; n<nf; n++) {
+                   in.getline(buffer, MAX_BUFFER_SIZE);
+                   std::stringstream ss(buffer);
+                   GLuint f0, f1, f2, f3;
+                   ss >> f0 >> f1 >> f2 >> f3;
+                   new_faces.push_back(f1);
+                   new_faces.push_back(f2);
+                   new_faces.push_back(f3);
+                }
+
+                return new Mesh(new_verts, new_faces);
+            } else {
+                std::cout << "The file to read is not in OFF format." << std::endl;
+            }
+
+        } else {
+            std::cout << "Error: Nef polyhedron is not simple." << std::endl;
+        }
+    } else {
+        std::cout << "Error: Initial mesh is not closed." << std::endl;
+    }
     return new Mesh(flat_verts, indices);
 }
 

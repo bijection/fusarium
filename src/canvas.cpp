@@ -159,7 +159,6 @@ void Canvas::mouseMoveEvent(QMouseEvent* event)
 {
     auto p = event->pos();
     auto d = p - mouse_pos;
-    qDebug() << "Hello world!";
     if (event->buttons() & Qt::LeftButton)
     {
         yaw = fmod(yaw - d.x(), 360);
