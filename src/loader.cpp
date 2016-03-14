@@ -17,6 +17,8 @@ typedef CGAL::Polyhedron_3<Kernel>         Polyhedron;
 typedef Polyhedron::HalfedgeDS             HalfedgeDS;
 typedef CGAL::Nef_polyhedron_3<Kernel>     Nef_polyhedron_3;
 typedef Nef_polyhedron_3::Plane_3  Plane_3;
+typedef Nef_polyhedron::Vector_3  Vector_3;
+typedef Nef_polyhedron::Aff_transformation_3  Aff_transformation_3;
 typedef Polyhedron::Facet_iterator Facet_iterator;
 typedef Polyhedron::Halfedge_handle Halfedge_handle;
 typedef Polyhedron::Vertex_handle Vertex_handle;
@@ -71,7 +73,15 @@ void Loader::run()
     }
 }
 
-
+Nef_polyhedron_3 makeCube(float x, float y, float z, float width, float height, float depth) {
+  Nef_polyhedron N1(Plane_3(1, 0, 0, -x - width / 2));
+  Nef_polyhedron N2(Plane_3(-1, 0, 0, x - width / 2));
+  Nef_polyhedron N3(Plane_3(0, 1, 0, -y - height / 2));
+  Nef_polyhedron N4(Plane_3(0, -1, 0, y - height / 2));
+  Nef_polyhedron N5(Plane_3(0, 0, 1, -z - depth / 2));
+  Nef_polyhedron N6(Plane_3(0, 0, -1, z - depth / 2));
+  return N1 * N2 * N3 * N4 * N5 * N6;
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 struct Vec3
@@ -179,17 +189,61 @@ Mesh* Loader::load_stl()
         flat_verts.push_back(v.first.z);
     }
 
+    Mesh* originalMesh = new Mesh(flat_verts, indices);
+
     Polyhedron P_init, P_final;
     polyhedron_builder<HalfedgeDS> builder(flat_verts, indices );
     P_init.delegate( builder );
 
     if (P_init.is_closed()) {
         Nef_polyhedron_3 Np (P_init);
-        Nef_polyhedron_3 Plane (Plane_3(0,0,1,0));
-        Nef_polyhedron_3 Intersect = Np * Plane;
+        qDebug() << "Nef_polyhedron built";
 
-        if (Intersect.is_simple()) {
-            Intersect.convert_to_polyhedron(P_final);
+        float x_center = (originalMesh->xmin() + originalMesh->xmax()) / 2;
+        float y_center = (originalMesh->ymin() + originalMesh->ymax()) / 2;
+        float z_center = (originalMesh->zmin() + originalMesh->zmax()) / 2;
+        float width = originalMesh->xmax() - originalMesh->xmin();
+        float height = originalMesh->ymax() - originalMesh->ymin();
+        float depth = originalMesh->zmax() - originalMesh->zmin();
+
+        Nef_polyhedron_3 topBlock = makeCube(
+            x_center, y_center, z_center + (depth/4*1.1),
+            width * 1.15, height * 1.15, depth/2 * 1.1);
+        Nef_polyhedron_3 topCutout = makeCube(
+            x_center, y_center, z_center + depth/2*0.65,
+            width * 1.1, height * 1.1, depth/2 * 0.9);
+        Nef_polyhedron_3 bottomBlock = makeCube(
+            x_center, y_center, z_center - (depth/4*1.1),
+            width * 1.15, height * 1.15, depth/2 * 1.1);
+        Nef_polyhedron_3 bottomCutout = makeCube(
+            x_center, y_center, z_center - depth/2*0.65,
+            width * 1.1, height * 1.1, depth/2 * 0.9);
+        Aff_transformation_3 translUpDelta(CGAL::TRANSLATION, Vector_3(0, 0, depth / 10));
+        Aff_transformation_3 translDownDelta(CGAL::TRANSLATION, Vector_3(0, 0, -depth / 10));
+
+        Nef_polyhedron_3 topMold = topBlock - Np;
+        Np.transform(translUpDelta);
+        topMold -= (topCutout - Np);
+        Np.transform(translDownDelta);
+
+        qDebug() << "Top mold built";
+
+        Nef_polyhedron_3 bottomMold = bottomBlock - Np;
+        Np.transform(translDownDelta);
+        bottomMold -= (bottomCutout - Np);
+        Np.transform(translUpDelta);
+        qDebug() << "Bottom mold built";
+
+        Aff_transformation_3 translUp(CGAL::TRANSLATION, Vector_3(0, 0, depth / 3));
+        Aff_transformation_3 translDown(CGAL::TRANSLATION, Vector_3(0, 0, -depth / 3));
+        topMold.transform(translUp);
+        bottomMold.transform(translDown);
+
+        Nef_polyhedron_3 molds = topMold + bottomMold;
+        qDebug() << "Molds combined";
+
+        if (molds.is_simple()) {
+            molds.convert_to_polyhedron(P_final);
             // write the polyhedron out as a .OFF file
             std::ofstream os("dump.off");
             os << P_final;
@@ -240,6 +294,7 @@ Mesh* Loader::load_stl()
                    new_faces.push_back(f2);
                    new_faces.push_back(f3);
                 }
+                qDebug() << "Exported to mesh";
 
                 return new Mesh(new_verts, new_faces);
             } else {
@@ -252,6 +307,6 @@ Mesh* Loader::load_stl()
     } else {
         std::cout << "Error: Initial mesh is not closed." << std::endl;
     }
-    return new Mesh(flat_verts, indices);
+    return originalMesh;
 }
 
