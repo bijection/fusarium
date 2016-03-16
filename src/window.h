@@ -2,6 +2,7 @@
 #define WINDOW_H
 
 #include <QMainWindow>
+#include <QGridLayout>
 
 class Canvas;
 
@@ -29,6 +30,7 @@ private:
     QAction* const open_action;
     QAction* const about_action;
     QAction* const quit_action;
+    void initWidgets(Canvas* canvas, QGridLayout* layout);
 
     Canvas* canvas;
 };

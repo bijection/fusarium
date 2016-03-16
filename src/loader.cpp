@@ -1,59 +1,59 @@
 #include "loader.h"
 
 #include <fstream>
-#include <CGAL/Gmpq.h>
-#include <CGAL/Extended_cartesian.h>
-#include <CGAL/Nef_polyhedron_3.h>
-#include <CGAL/Polyhedron_3.h>
-#include <CGAL/IO/Polyhedron_iostream.h>
-#include <CGAL/Nef_polyhedron_3.h>
+// #include <CGAL/Gmpq.h>
+// #include <CGAL/Extended_cartesian.h>
+// #include <CGAL/Nef_polyhedron_3.h>
+// #include <CGAL/Polyhedron_3.h>
+// #include <CGAL/IO/Polyhedron_iostream.h>
+// #include <CGAL/Nef_polyhedron_3.h>
 // #include <CGAL/Cartesian_converter.h>
 
-typedef CGAL::Extended_cartesian< CGAL::Lazy_exact_nt<CGAL::Gmpq> > Kernel;
-// typedef CGAL::Simple_cartesian<double>                           DoubleKernel;
-// typedef CGAL::Cartesian_converter<Kernel, DoubleKernel>                         ConverterToDouble;
-typedef CGAL::Nef_polyhedron_3<Kernel>  Nef_polyhedron;
-typedef CGAL::Polyhedron_3<Kernel>         Polyhedron;
-typedef Polyhedron::HalfedgeDS             HalfedgeDS;
-typedef CGAL::Nef_polyhedron_3<Kernel>     Nef_polyhedron_3;
-typedef Nef_polyhedron_3::Plane_3  Plane_3;
-typedef Polyhedron::Facet_iterator Facet_iterator;
-typedef Polyhedron::Halfedge_handle Halfedge_handle;
-typedef Polyhedron::Vertex_handle Vertex_handle;
+// typedef CGAL::Extended_cartesian< CGAL::Lazy_exact_nt<CGAL::Gmpq> > Kernel;
+// // typedef CGAL::Simple_cartesian<double>                           DoubleKernel;
+// // typedef CGAL::Cartesian_converter<Kernel, DoubleKernel>                         ConverterToDouble;
+// typedef CGAL::Nef_polyhedron_3<Kernel>  Nef_polyhedron;
+// typedef CGAL::Polyhedron_3<Kernel>         Polyhedron;
+// typedef Polyhedron::HalfedgeDS             HalfedgeDS;
+// typedef CGAL::Nef_polyhedron_3<Kernel>     Nef_polyhedron_3;
+// typedef Nef_polyhedron_3::Plane_3  Plane_3;
+// typedef Polyhedron::Facet_iterator Facet_iterator;
+// typedef Polyhedron::Halfedge_handle Halfedge_handle;
+// typedef Polyhedron::Vertex_handle Vertex_handle;
 
 // http://jamesgregson.blogspot.com/2012/05/example-code-for-building.html
-template<class HDS>
-class polyhedron_builder : public CGAL::Modifier_base<HDS> {
-public:
-    std::vector<GLfloat> &coords;
-    std::vector<GLuint>    &tris;
-    polyhedron_builder( std::vector<GLfloat> &_coords, std::vector<GLuint> &_tris ) : coords(_coords), tris(_tris) {}
-    void operator()( HDS& hds) {
-        typedef typename HDS::Vertex Vertex;
-        typedef typename Vertex::Point Point;
+// template<class HDS>
+// class polyhedron_builder : public CGAL::Modifier_base<HDS> {
+// public:
+//     std::vector<GLfloat> &coords;
+//     std::vector<GLuint>    &tris;
+//     polyhedron_builder( std::vector<GLfloat> &_coords, std::vector<GLuint> &_tris ) : coords(_coords), tris(_tris) {}
+//     void operator()( HDS& hds) {
+//         typedef typename HDS::Vertex Vertex;
+//         typedef typename Vertex::Point Point;
 
-    // create a cgal incremental builder
-        CGAL::Polyhedron_incremental_builder_3<HDS> B( hds, true);
-        B.begin_surface( coords.size()/3, tris.size()/3 );
+//     // create a cgal incremental builder
+//         CGAL::Polyhedron_incremental_builder_3<HDS> B( hds, true);
+//         B.begin_surface( coords.size()/3, tris.size()/3 );
 
-        // add the polyhedron vertices
-        for( int i=0; i<(int)coords.size(); i+=3 ){
-            B.add_vertex( Point( coords[i+0], coords[i+1], coords[i+2] ) );
-        }
+//         // add the polyhedron vertices
+//         for( int i=0; i<(int)coords.size(); i+=3 ){
+//             B.add_vertex( Point( coords[i+0], coords[i+1], coords[i+2] ) );
+//         }
 
-        // add the polyhedron triangles
-        for( int i=0; i<(int)tris.size(); i+=3 ){
-            B.begin_facet();
-            B.add_vertex_to_facet( tris[i+0] );
-            B.add_vertex_to_facet( tris[i+1] );
-            B.add_vertex_to_facet( tris[i+2] );
-            B.end_facet();
-        }
+//         // add the polyhedron triangles
+//         for( int i=0; i<(int)tris.size(); i+=3 ){
+//             B.begin_facet();
+//             B.add_vertex_to_facet( tris[i+0] );
+//             B.add_vertex_to_facet( tris[i+1] );
+//             B.add_vertex_to_facet( tris[i+2] );
+//             B.end_facet();
+//         }
 
-        // finish up the surface
-        B.end_surface();
-    }
-};
+//         // finish up the surface
+//         B.end_surface();
+//     }
+// };
 
 Loader::Loader(QObject* parent, const QString& filename)
     : QThread(parent), filename(filename)
@@ -179,79 +179,79 @@ Mesh* Loader::load_stl()
         flat_verts.push_back(v.first.z);
     }
 
-    Polyhedron P_init, P_final;
-    polyhedron_builder<HalfedgeDS> builder(flat_verts, indices );
-    P_init.delegate( builder );
+    // Polyhedron P_init, P_final;
+    // polyhedron_builder<HalfedgeDS> builder(flat_verts, indices );
+    // P_init.delegate( builder );
 
-    if (P_init.is_closed()) {
-        Nef_polyhedron_3 Np (P_init);
-        Nef_polyhedron_3 Plane (Plane_3(0,0,1,0));
-        Nef_polyhedron_3 Intersect = Np * Plane;
+    // if (P_init.is_closed()) {
+    //     Nef_polyhedron_3 Np (P_init);
+    //     Nef_polyhedron_3 Plane (Plane_3(0,0,1,0));
+    //     Nef_polyhedron_3 Intersect = Np * Plane;
 
-        if (Intersect.is_simple()) {
-            Intersect.convert_to_polyhedron(P_final);
-            // write the polyhedron out as a .OFF file
-            std::ofstream os("dump.off");
-            os << P_final;
-            os.close();
+    //     if (Intersect.is_simple()) {
+    //         Intersect.convert_to_polyhedron(P_final);
+    //         // write the polyhedron out as a .OFF file
+    //         std::ofstream os("dump.off");
+    //         os << P_final;
+    //         os.close();
 
-            // Container holding last line read
-            std::string readLine;
-            // Open file for reading
-            std::ifstream in("dump.off");
+    //         // Container holding last line read
+    //         std::string readLine;
+    //         // Open file for reading
+    //         std::ifstream in("dump.off");
 
-            // Check if file is in OFF format
-            getline(in,readLine);
-            if (readLine == "OFF") {
-                int MAX_BUFFER_SIZE = 1000;
-                char buffer[MAX_BUFFER_SIZE];
+    //         // Check if file is in OFF format
+    //         getline(in,readLine);
+    //         if (readLine == "OFF") {
+    //             int MAX_BUFFER_SIZE = 1000;
+    //             char buffer[MAX_BUFFER_SIZE];
 
-                // Read values for Nv and Nf
-                int nv, nf;
-                in.getline(buffer, MAX_BUFFER_SIZE);
-                std::stringstream ss(buffer);
-                ss >> nv >> nf;
+    //             // Read values for Nv and Nf
+    //             int nv, nf;
+    //             in.getline(buffer, MAX_BUFFER_SIZE);
+    //             std::stringstream ss(buffer);
+    //             ss >> nv >> nf;
 
-                // skip blank line
-                getline(in,readLine);
+    //             // skip blank line
+    //             getline(in,readLine);
 
-                // read the vertices
-                std::vector<GLfloat> new_verts;
-                new_verts.reserve(nv);
-                for (int n=0; n<nv; n++) {
-                   in.getline(buffer, MAX_BUFFER_SIZE);
-                   std::stringstream ss(buffer);
-                   GLfloat x, y, z;
-                   ss >> x >> y >> z;
-                   new_verts.push_back(x);
-                   new_verts.push_back(y);
-                   new_verts.push_back(z);
-                }
+    //             // read the vertices
+    //             std::vector<GLfloat> new_verts;
+    //             new_verts.reserve(nv);
+    //             for (int n=0; n<nv; n++) {
+    //                in.getline(buffer, MAX_BUFFER_SIZE);
+    //                std::stringstream ss(buffer);
+    //                GLfloat x, y, z;
+    //                ss >> x >> y >> z;
+    //                new_verts.push_back(x);
+    //                new_verts.push_back(y);
+    //                new_verts.push_back(z);
+    //             }
 
-                // read the faces
-                std::vector<GLuint> new_faces;
-                new_faces.reserve(nf * 3);
-                for (int n=0; n<nf; n++) {
-                   in.getline(buffer, MAX_BUFFER_SIZE);
-                   std::stringstream ss(buffer);
-                   GLuint f0, f1, f2, f3;
-                   ss >> f0 >> f1 >> f2 >> f3;
-                   new_faces.push_back(f1);
-                   new_faces.push_back(f2);
-                   new_faces.push_back(f3);
-                }
+    //             // read the faces
+    //             std::vector<GLuint> new_faces;
+    //             new_faces.reserve(nf * 3);
+    //             for (int n=0; n<nf; n++) {
+    //                in.getline(buffer, MAX_BUFFER_SIZE);
+    //                std::stringstream ss(buffer);
+    //                GLuint f0, f1, f2, f3;
+    //                ss >> f0 >> f1 >> f2 >> f3;
+    //                new_faces.push_back(f1);
+    //                new_faces.push_back(f2);
+    //                new_faces.push_back(f3);
+    //             }
 
-                return new Mesh(new_verts, new_faces);
-            } else {
-                std::cout << "The file to read is not in OFF format." << std::endl;
-            }
+    //             return new Mesh(new_verts, new_faces);
+    //         } else {
+    //             std::cout << "The file to read is not in OFF format." << std::endl;
+    //         }
 
-        } else {
-            std::cout << "Error: Nef polyhedron is not simple." << std::endl;
-        }
-    } else {
-        std::cout << "Error: Initial mesh is not closed." << std::endl;
-    }
+    //     } else {
+    //         std::cout << "Error: Nef polyhedron is not simple." << std::endl;
+    //     }
+    // } else {
+    //     std::cout << "Error: Initial mesh is not closed." << std::endl;
+    // }
     return new Mesh(flat_verts, indices);
 }
 

@@ -14,6 +14,7 @@ LIBS += -L"/usr/local/lib" -lCGAL -lboost_thread-mt -lgmp -lmpfr
 SOURCES += \
     ../src/app.cpp\
     ../src/main.cpp\
+    ../src/editorpanel.cpp\
     ../src/canvas.cpp \
     ../src/mesh.cpp \
     ../src/glmesh.cpp \
@@ -24,6 +25,7 @@ SOURCES += \
 HEADERS  += \
     ../src/app.h\
     ../src/canvas.h \
+    ../src/editorpanel.h \
     ../src/mesh.h \
     ../src/glmesh.h \
     ../src/loader.h \

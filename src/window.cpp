@@ -1,10 +1,13 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QtWidgets>
+#include <QGridLayout>
 
 #include "window.h"
 #include "canvas.h"
 #include "loader.h"
+#include "editorpanel.h"
 
 Window::Window(QWidget *parent) :
     QMainWindow(parent),
@@ -13,7 +16,7 @@ Window::Window(QWidget *parent) :
     quit_action(new QAction("Quit", this))
 
 {
-    setWindowTitle("fstl");
+    setWindowTitle("Fac^2 Editor");
     setAcceptDrops(true);
 
     QFile styleFile(":/qt/style.qss");
@@ -23,9 +26,14 @@ Window::Window(QWidget *parent) :
     QGLFormat format;
     format.setVersion(2, 1);
     format.setSampleBuffers(true);
-
     canvas = new Canvas(format, this);
-    setCentralWidget(canvas);
+
+    QWidget* centralWidget = new QWidget(this);
+    QGridLayout* layout = new QGridLayout;
+    centralWidget->setLayout(layout);
+
+    initWidgets(canvas, layout);
+    this->setCentralWidget(centralWidget);
 
     open_action->setShortcut(QKeySequence::Open);
     QObject::connect(open_action, &QAction::triggered,
@@ -45,7 +53,17 @@ Window::Window(QWidget *parent) :
     auto help_menu = menuBar()->addMenu("Help");
     help_menu->addAction(about_action);
 
-    resize(600, 400);
+    resize(800, 400);
+}
+
+void Window::initWidgets(Canvas* canvas, QGridLayout* layout) {
+
+    EditorPanel* editorPanel = new EditorPanel(this);
+    editorPanel->setMinimumWidth(250);
+    layout->addWidget(editorPanel, 0, 0);
+    layout->addWidget(canvas, 0, 1);
+    layout->setColumnStretch(0, 1);
+    layout->setColumnStretch(1, 3);
 }
 
 void Window::on_open()
@@ -67,7 +85,7 @@ void Window::on_about()
         "   style=\"color: #93a1a1;\">https://github.com/mkeeter/fstl</a></p>"
         "<p>© 2014 Matthew Keeter<br>"
         "<a href=\"mailto:matt.j.keeter@gmail.com\""
-        "   style=\"color: #93a1a1;\">matt.j.keeter@gmail.com</a></p>");
+        "   style=\"color: #93a1a1;\">matt.j.Keeterr@gmail.com</a></p>");
 }
 
 void Window::on_ascii_stl()
