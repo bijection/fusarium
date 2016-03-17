@@ -32,7 +32,7 @@ Window::Window(QWidget *parent) :
     QGridLayout* layout = new QGridLayout;
     centralWidget->setLayout(layout);
 
-    initWidgets(canvas, layout);
+    initWidgets(layout);
     this->setCentralWidget(centralWidget);
 
     open_action->setShortcut(QKeySequence::Open);
@@ -56,14 +56,20 @@ Window::Window(QWidget *parent) :
     resize(800, 400);
 }
 
-void Window::initWidgets(Canvas* canvas, QGridLayout* layout) {
+void Window::initWidgets(QGridLayout* layout) {
 
-    EditorPanel* editorPanel = new EditorPanel(this);
+    editorPanel = new EditorPanel(this);
     editorPanel->setMinimumWidth(250);
     layout->addWidget(editorPanel, 0, 0);
     layout->addWidget(canvas, 0, 1);
     layout->setColumnStretch(0, 1);
     layout->setColumnStretch(1, 3);
+
+    QObject::connect(editorPanel->xRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateX(int)));
+    QObject::connect(editorPanel->yRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateY(int)));
+    QObject::connect(editorPanel->zRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateZ(int)));
+    QObject::connect(canvas, &Canvas::updatedBbox, editorPanel, &EditorPanel::updateBboxLabels);
+
 }
 
 void Window::on_open()
@@ -126,13 +132,14 @@ bool Window::load_stl(const QString& filename)
 
     connect(loader, &Loader::got_mesh,
             canvas, &Canvas::load_mesh);
+    connect(loader, &Loader::got_mesh,
+            editorPanel, &EditorPanel::resetControls);
     connect(loader, &Loader::error_ascii_stl,
               this, &Window::on_ascii_stl);
     connect(loader, &Loader::error_bad_stl,
               this, &Window::on_bad_stl);
-
     connect(loader, &Loader::finished,
-            loader, &Loader::deleteLater);
+           loader, &Loader::deleteLater);
     connect(loader, &Loader::finished,
               this, &Window::enable_open);
     connect(loader, &Loader::finished,

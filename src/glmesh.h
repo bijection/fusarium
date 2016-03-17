@@ -11,7 +11,10 @@ class GLMesh : protected QGLFunctions
 public:
     GLMesh(const Mesh* const mesh);
     void draw(GLuint vp);
+    void drawBoundingBox();
+
 private:
+	const Mesh* mesh;
     QGLBuffer vertices;
     QGLBuffer indices;
 };

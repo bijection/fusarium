@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <QtDebug>
+#include <iostream>
 
 #include "canvas.h"
 #include "backdrop.h"
@@ -18,19 +19,27 @@ Canvas::Canvas(const QGLFormat& format, QWidget *parent)
 
 Canvas::~Canvas()
 {
-    delete mesh;
+    delete glmesh;
 }
 
 void Canvas::load_mesh(Mesh* m)
 {
-    mesh = new GLMesh(m);
-    center = QVector3D(m->xmin() + m->xmax(),
-                       m->ymin() + m->ymax(),
-                       m->zmin() + m->zmax()) / 2;
+    mesh = m;
+    glmesh = new GLMesh(m);
+
+    meshRotateX = 0;
+    meshRotateY = 0;
+    meshRotateZ = 0;
+    updateMeshBbox();
+    BoundingBox bbox = mesh->bbox;
+
+    center = QVector3D(bbox.xmin + bbox.xmax,
+                       bbox.ymin + bbox.ymax,
+                       bbox.zmin + bbox.zmax) / 2;
     scale = 2 / sqrt(
-                pow(m->xmax() - m->xmin(), 2) +
-                pow(m->ymax() - m->ymin(), 2) +
-                pow(m->zmax() - m->zmin(), 2));
+                pow(bbox.xmax - bbox.xmin, 2) +
+                pow(bbox.ymax - bbox.ymin, 2) +
+                pow(bbox.zmax - bbox.zmin, 2));
 
     // Reset other camera parameters
     zoom = 1;
@@ -38,8 +47,6 @@ void Canvas::load_mesh(Mesh* m)
     tilt = 90;
 
     update();
-
-    delete m;
 }
 
 void Canvas::set_status(const QString &s)
@@ -52,6 +59,36 @@ void Canvas::clear_status()
 {
     status = "";
     update();
+}
+
+void Canvas::setMeshRotateX(int degrees)
+{
+    meshRotateX = degrees + 0.0;
+    updateMeshBbox();
+    update();
+}
+
+void Canvas::setMeshRotateY(int degrees)
+{
+    meshRotateY = degrees + 0.0;
+    updateMeshBbox();
+    update();
+}
+
+void Canvas::setMeshRotateZ(int degrees)
+{
+    meshRotateZ = degrees + 0.0;
+    updateMeshBbox();
+    update();
+}
+
+void Canvas::updateMeshBbox() {
+    mesh->setTransform(meshRotateX, meshRotateY, meshRotateZ);
+    BoundingBox bbox = mesh->bbox;
+    emit updatedBbox(
+        bbox.xmax - bbox.xmin,
+        bbox.ymax - bbox.ymin,
+        bbox.zmax - bbox.zmin);
 }
 
 void Canvas::initializeGL()
@@ -74,7 +111,7 @@ void Canvas::paintEvent(QPaintEvent *event)
     glEnable(GL_DEPTH_TEST);
 
     backdrop->draw();
-    if (mesh)  draw_mesh();
+    if (glmesh) draw_mesh();
 
     if (status.isNull())    return;
 
@@ -104,7 +141,12 @@ void Canvas::draw_mesh()
     glEnableVertexAttribArray(vp);
 
     // Then draw the mesh with that vertex position
-    mesh->draw(vp);
+    glmesh->draw(vp);
+
+    glUniformMatrix4fv(
+                mesh_shader.uniformLocation("transform_matrix"),
+                1, GL_FALSE, bbox_transform_matrix().data());
+    glmesh->drawBoundingBox();
 
     // Clean up state machine
     glDisableVertexAttribArray(vp);
@@ -112,6 +154,19 @@ void Canvas::draw_mesh()
 }
 
 QMatrix4x4 Canvas::transform_matrix() const
+{
+    QMatrix4x4 m;
+    m.rotate(tilt, QVector3D(1, 0, 0));
+    m.rotate(yaw,  QVector3D(0, 0, 1));
+    m.scale(scale);
+    m.translate(-center);
+    m.rotate(meshRotateX, QVector3D(1, 0, 0));
+    m.rotate(meshRotateY,  QVector3D(0, 1, 0));
+    m.rotate(meshRotateZ,  QVector3D(0, 0, 1));
+    return m;
+}
+
+QMatrix4x4 Canvas::bbox_transform_matrix() const
 {
     QMatrix4x4 m;
     m.rotate(tilt, QVector3D(1, 0, 0));

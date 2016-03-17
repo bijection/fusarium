@@ -22,11 +22,16 @@ public:
     void paintEvent(QPaintEvent* event);
     ~Canvas();
 
+signals:
+    void updatedBbox(float x, float y, float z);
+
 public slots:
     void set_status(const QString& s);
     void clear_status();
     void load_mesh(Mesh* m);
-
+    void setMeshRotateX(int degrees);
+    void setMeshRotateY(int degrees);
+    void setMeshRotateZ(int degrees);
 
 protected:
     void mousePressEvent(QMouseEvent* event);
@@ -37,14 +42,17 @@ protected:
 
 private:
     void draw_mesh();
+    void updateMeshBbox();
 
     QMatrix4x4 transform_matrix() const;
     QMatrix4x4 view_matrix() const;
+    QMatrix4x4 bbox_transform_matrix() const;
 
     QGLShaderProgram mesh_shader;
     QGLShaderProgram quad_shader;
 
-    GLMesh* mesh;
+    GLMesh* glmesh;
+    Mesh* mesh;
     Backdrop* backdrop;
 
     QVector3D center;
@@ -52,6 +60,8 @@ private:
     float zoom;
     float tilt;
     float yaw;
+
+    float meshRotateX, meshRotateY, meshRotateZ;
 
     QPoint mouse_pos;
     QString status;
