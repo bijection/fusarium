@@ -10,9 +10,11 @@ public:
     QSlider *xRotateSlider;
     QSlider *yRotateSlider;
     QSlider *zRotateSlider;
+    QSlider *scaleSlider;
 
 public slots:
     void updateBboxLabels(float x, float y, float z);
+    void updateBboxUnits(int index);
     void resetControls();
 
 private:
@@ -23,5 +25,7 @@ private:
     QLabel *width;
     QLabel *height;
     QLabel *depth;
-
+    float x, y, z;
+    QString unit = tr(" inches");
+    QComboBox* unitCombo;
 };

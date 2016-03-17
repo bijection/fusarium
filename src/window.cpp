@@ -68,6 +68,7 @@ void Window::initWidgets(QGridLayout* layout) {
     QObject::connect(editorPanel->xRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateX(int)));
     QObject::connect(editorPanel->yRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateY(int)));
     QObject::connect(editorPanel->zRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateZ(int)));
+    QObject::connect(editorPanel->scaleSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshScale(int)));
     QObject::connect(canvas, &Canvas::updatedBbox, editorPanel, &EditorPanel::updateBboxLabels);
 
 }

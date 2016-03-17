@@ -1,4 +1,5 @@
 #include "backdrop.h"
+#include "backdrop.h"
 
 Backdrop::Backdrop()
 {

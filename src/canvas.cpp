@@ -82,13 +82,29 @@ void Canvas::setMeshRotateZ(int degrees)
     update();
 }
 
+void Canvas::setMeshScale(int factor)
+{
+    if (factor > 0) {
+        meshScale = factor/10.0f + 1.0f;
+    } else if (factor < 0) {
+        meshScale = 1 / (-factor/10.0f + 1.0f);
+    } else {
+        meshScale = 1;
+    }
+    updateMeshBbox();
+    update();
+}
+
 void Canvas::updateMeshBbox() {
     mesh->setTransform(meshRotateX, meshRotateY, meshRotateZ);
     BoundingBox bbox = mesh->bbox;
+    center = QVector3D(bbox.xmin + bbox.xmax,
+                       bbox.ymin + bbox.ymax,
+                       bbox.zmin + bbox.zmax) / 2;
     emit updatedBbox(
-        bbox.xmax - bbox.xmin,
-        bbox.ymax - bbox.ymin,
-        bbox.zmax - bbox.zmin);
+        (bbox.xmax - bbox.xmin) * meshScale,
+        (bbox.ymax - bbox.ymin) * meshScale,
+        (bbox.zmax - bbox.zmin) * meshScale);
 }
 
 void Canvas::initializeGL()
@@ -113,6 +129,7 @@ void Canvas::paintEvent(QPaintEvent *event)
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
+    glHint(GL_CLIP_VOLUME_CLIPPING_HINT_EXT,GL_FASTEST);
 
     backdrop->draw();
     if (glmesh) draw_mesh();
@@ -138,7 +155,7 @@ void Canvas::draw_mesh()
                 1, GL_FALSE, view_matrix().data());
 
     // Compensate for z-flattening when zooming
-    glUniform1f(mesh_shader.uniformLocation("zoom"), 1/zoom);
+    glUniform1f(mesh_shader.uniformLocation("zoom"), 1/(zoom * meshScale));
 
     // Find and enable the attribute location for vertex position
     const GLuint vp = mesh_shader.attributeLocation("vertex_position");
@@ -196,7 +213,7 @@ QMatrix4x4 Canvas::view_matrix() const
     {
         m.scale(-1, width() / float(height()), 0.5);
     }
-    m.scale(zoom, zoom, 1);
+    m.scale(zoom * meshScale, zoom * meshScale, 1);
     return m;
 }
 

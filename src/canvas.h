@@ -32,6 +32,7 @@ public slots:
     void setMeshRotateX(int degrees);
     void setMeshRotateY(int degrees);
     void setMeshRotateZ(int degrees);
+    void setMeshScale(int factor);
 
 protected:
     void mousePressEvent(QMouseEvent* event);
@@ -63,6 +64,7 @@ private:
     float yaw;
 
     float meshRotateX, meshRotateY, meshRotateZ;
+    float meshScale = 1;
 
     QPoint mouse_pos;
     QString status;

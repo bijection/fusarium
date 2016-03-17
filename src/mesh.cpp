@@ -41,4 +41,10 @@ void Mesh::setTransform(float rotateX, float rotateY, float rotateZ)
             bbox.zmax = fmax(bbox.zmax, v1.z());
         }
     }
+    // bbox.xmin *= scale;
+    // bbox.xmax *= scale;
+    // bbox.ymin *= scale;
+    // bbox.ymax *= scale;
+    // bbox.zmin *= scale;
+    // bbox.zmax *= scale;
 }
