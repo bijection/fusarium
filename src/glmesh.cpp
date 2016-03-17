@@ -48,8 +48,8 @@ void GLMesh::drawBoundingBox()
     float z0 = bbox.zmin;
     float z1 = bbox.zmax;
 
-    glLineWidth(10);
     glColor3f(1.0, 1.0, 1.0);
+    glLineWidth(2);
     glBegin(GL_LINES);
     glVertex3f(x0, y0, z0);
     glVertex3f(x1, y0, z0);
@@ -75,7 +75,11 @@ void GLMesh::drawBoundingBox()
     glVertex3f(x1, y0, z1);
     glVertex3f(x0, y0, z1);
     glVertex3f(x0, y1, z1);
-    glLineWidth(2);
+    glEnd();
+    glLineStipple(4, 0xAAAA);
+    glEnable(GL_LINE_STIPPLE);
+    glLineWidth(0.1);
+    glBegin(GL_LINES);
     glVertex3f(x0, y0, (z0+z1)/2);
     glVertex3f(x0, y1, (z0+z1)/2);
     glVertex3f(x0, y0, (z0+z1)/2);
@@ -85,4 +89,5 @@ void GLMesh::drawBoundingBox()
     glVertex3f(x1, y1, (z0+z1)/2);
     glVertex3f(x1, y0, (z0+z1)/2);
     glEnd();
+    glDisable(GL_LINE_STIPPLE);
 }

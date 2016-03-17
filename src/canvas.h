@@ -49,6 +49,7 @@ private:
     QMatrix4x4 bbox_transform_matrix() const;
 
     QGLShaderProgram mesh_shader;
+    QGLShaderProgram line_shader;
     QGLShaderProgram quad_shader;
 
     GLMesh* glmesh;

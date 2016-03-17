@@ -99,6 +99,10 @@ void Canvas::initializeGL()
     mesh_shader.addShaderFromSourceFile(QGLShader::Fragment, ":/gl/mesh.frag");
     mesh_shader.link();
 
+    line_shader.addShaderFromSourceFile(QGLShader::Vertex, ":/gl/mesh.vert");
+    line_shader.addShaderFromSourceFile(QGLShader::Fragment, ":/gl/lines.frag");
+    line_shader.link();
+
     backdrop = new Backdrop();
 }
 
@@ -142,15 +146,20 @@ void Canvas::draw_mesh()
 
     // Then draw the mesh with that vertex position
     glmesh->draw(vp);
+    mesh_shader.release();
 
+    line_shader.bind();
     glUniformMatrix4fv(
-                mesh_shader.uniformLocation("transform_matrix"),
+                line_shader.uniformLocation("transform_matrix"),
                 1, GL_FALSE, bbox_transform_matrix().data());
+    glUniformMatrix4fv(
+                line_shader.uniformLocation("view_matrix"),
+                1, GL_FALSE, view_matrix().data());
     glmesh->drawBoundingBox();
 
     // Clean up state machine
     glDisableVertexAttribArray(vp);
-    mesh_shader.release();
+    line_shader.release();
 }
 
 QMatrix4x4 Canvas::transform_matrix() const
