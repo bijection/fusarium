@@ -92,10 +92,18 @@ QGroupBox *EditorPanel::createViewGroup()
     QFormLayout *layout = new QFormLayout;
     layout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
-    layout->addRow(new QCheckBox(tr("Model")));
-    layout->addRow(new QCheckBox(tr("Axes")));
-    layout->addRow(new QCheckBox(tr("Bounding Box")));
-    layout->addRow(new QCheckBox(tr("Mold")));
+    QCheckBox* modelView = new QCheckBox(tr("Model"));
+    QCheckBox* axesView = new QCheckBox(tr("Axes"));
+    QCheckBox* bboxView = new QCheckBox(tr("Bounding Box"));
+    QCheckBox* moldView = new QCheckBox(tr("Mold"));
+
+    modelView->setChecked(true);
+    bboxView->setChecked(true);
+
+    layout->addRow(modelView);
+    layout->addRow(axesView);
+    layout->addRow(bboxView);
+    layout->addRow(moldView);
     groupBox->setLayout(layout);
     return groupBox;
 }
