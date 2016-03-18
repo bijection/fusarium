@@ -11,10 +11,12 @@ public:
     QSlider *yRotateSlider;
     QSlider *zRotateSlider;
     QSlider *scaleSlider;
+    QPushButton *optimizeBtn;
 
 public slots:
     void updateBboxLabels(float x, float y, float z);
     void updateBboxUnits(int index);
+    void updateOrientation(float x, float y, float z);
     void resetControls();
 
 private:

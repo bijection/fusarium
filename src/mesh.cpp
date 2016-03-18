@@ -41,10 +41,28 @@ void Mesh::setTransform(float rotateX, float rotateY, float rotateZ)
             bbox.zmax = fmax(bbox.zmax, v1.z());
         }
     }
-    // bbox.xmin *= scale;
-    // bbox.xmax *= scale;
-    // bbox.ymin *= scale;
-    // bbox.ymax *= scale;
-    // bbox.zmin *= scale;
-    // bbox.zmax *= scale;
+}
+
+float Mesh::calculateProjectedArea(QVector3D norm) {
+    QVector3D x,y,z,p,q,r;
+    float norm2 = norm.length();
+    float totalArea = 0;
+    for (size_t i=0; i<indices.size(); i+= 3) {
+        float xIdx = 3 * indices[i];
+        float yIdx = 3 * indices[i+1];
+        float zIdx = 3 * indices[i+2];
+        // x y z are the coordinates of the triangle
+        x = QVector3D(vertices[xIdx], vertices[xIdx+1], vertices[xIdx+2]);
+        y = QVector3D(vertices[yIdx], vertices[yIdx+1], vertices[yIdx+2]);
+        z = QVector3D(vertices[zIdx], vertices[zIdx+1], vertices[zIdx+2]);
+
+        // p q r are the coordinates of the triangle after rotation and projected onto the xz plane
+        p = x - QVector3D::dotProduct(x, norm) / norm2 * norm;
+        q = y - QVector3D::dotProduct(y, norm) / norm2 * norm;
+        r = z - QVector3D::dotProduct(z, norm) / norm2 * norm;
+
+        float area = QVector3D::crossProduct((p-q), (p-r)).length() / 2;
+        totalArea += area;
+    }
+    return totalArea;
 }

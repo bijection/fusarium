@@ -5,6 +5,9 @@
 #include <QtDebug>
 #include <iostream>
 
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_multimin.h>
+
 #include "canvas.h"
 #include "backdrop.h"
 #include "glmesh.h"
@@ -101,6 +104,13 @@ void Canvas::updateMeshBbox() {
     center = QVector3D(bbox.xmin + bbox.xmax,
                        bbox.ymin + bbox.ymax,
                        bbox.zmin + bbox.zmax) / 2;
+    QMatrix4x4 m;
+    m.rotate(meshRotateX, QVector3D(1, 0, 0));
+    m.rotate(meshRotateY, QVector3D(0, 1, 0));
+    m.rotate(meshRotateZ, QVector3D(0, 0, 1));
+    mesh->calculateProjectedArea(QVector3D(0, 0, 1) * m);
+
+
     emit updatedBbox(
         (bbox.xmax - bbox.xmin) * meshScale,
         (bbox.ymax - bbox.ymin) * meshScale,
@@ -283,4 +293,83 @@ void Canvas::wheelEvent(QWheelEvent *event)
                   view_matrix().inverted() * v;
     center += b - a;
     update();
+}
+
+double calcArea (const gsl_vector *v, void *params) {
+    double meshRotateX, meshRotateY, meshRotateZ;
+    Mesh *p = (Mesh *) params;
+
+    meshRotateX = gsl_vector_get(v, 0);
+    meshRotateY = gsl_vector_get(v, 1);
+    meshRotateZ = gsl_vector_get(v, 2);
+
+    QMatrix4x4 m;
+    m.rotate(meshRotateX, QVector3D(1, 0, 0));
+    m.rotate(meshRotateY, QVector3D(0, 1, 0));
+    m.rotate(meshRotateZ, QVector3D(0, 0, 1));
+    return -(p[0]).calculateProjectedArea(QVector3D(0, 0, 1) * m);
+}
+
+void Canvas::optimizeMesh() {
+    Mesh par[1] = {*mesh};
+
+    const gsl_multimin_fminimizer_type *T = gsl_multimin_fminimizer_nmsimplex2;
+    gsl_multimin_fminimizer *s = NULL;
+    gsl_vector *ss, *x;
+    gsl_multimin_function minex_func;
+
+    size_t iter = 0;
+    int status;
+    double size;
+
+    /* Starting point */
+    x = gsl_vector_alloc (3);
+    gsl_vector_set (x, 0, meshRotateX);
+    gsl_vector_set (x, 1, meshRotateY);
+    gsl_vector_set (x, 2, meshRotateZ);
+
+    /* Set initial step sizes to 1 */
+    ss = gsl_vector_alloc (3);
+    gsl_vector_set_all (ss, 1.0);
+
+    /* Initialize method and iterate */
+    minex_func.n = 3;
+    minex_func.f = calcArea;
+    minex_func.params = par;
+
+    s = gsl_multimin_fminimizer_alloc (T, 3);
+    gsl_multimin_fminimizer_set (s, &minex_func, x, ss);
+
+    do {
+        iter++;
+        status = gsl_multimin_fminimizer_iterate(s);
+
+        if (status) break;
+
+        size = gsl_multimin_fminimizer_size (s);
+        status = gsl_multimin_test_size (size, 1e-2);
+
+        // uncomment this out to see the gory details of the optimization
+        // if (status == GSL_SUCCESS) {
+        //     printf ("converged to minimum at\n");
+        // }
+
+        // printf ("%5d %3.3f %3.3f %3.3f f() = %7.3f size = %.3f\n",
+        //       iter,
+        //       gsl_vector_get (s->x, 0),
+        //       gsl_vector_get (s->x, 1),
+        //       gsl_vector_get (s->x, 2),
+        //       s->fval, size);
+    }
+    while (status == GSL_CONTINUE && iter < 100);
+
+    setMeshRotateX(gsl_vector_get (s->x, 0));
+    setMeshRotateY(gsl_vector_get (s->x, 1));
+    setMeshRotateZ(gsl_vector_get (s->x, 2));
+
+    emit updatedOrientation(meshRotateX, meshRotateY, meshRotateZ);
+
+    gsl_vector_free(x);
+    gsl_vector_free(ss);
+    gsl_multimin_fminimizer_free (s);
 }

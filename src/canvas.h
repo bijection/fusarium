@@ -24,6 +24,7 @@ public:
 
 signals:
     void updatedBbox(float x, float y, float z);
+    void updatedOrientation(float x, float y, float z);
 
 public slots:
     void set_status(const QString& s);
@@ -33,6 +34,7 @@ public slots:
     void setMeshRotateY(int degrees);
     void setMeshRotateZ(int degrees);
     void setMeshScale(int factor);
+    void optimizeMesh();
 
 protected:
     void mousePressEvent(QMouseEvent* event);

@@ -41,10 +41,12 @@ QGroupBox *EditorPanel::createOrientationGroup()
     zRotateSlider->setTickPosition(QSlider::TicksBelow);
     zRotateSlider->setTickInterval(30);
 
+    optimizeBtn = new QPushButton(tr("Optimize"));
+
     layout->addRow(new QLabel(tr("X rotation")), xRotateSlider);
     layout->addRow(new QLabel(tr("Y rotation")), yRotateSlider);
-    layout->addRow(new QLabel(tr("Z Rotation")), zRotateSlider);
-    layout->addRow(new QPushButton(tr("Optimize")));
+    layout->addRow(new QLabel(tr("Z rotation")), zRotateSlider);
+    layout->addRow(optimizeBtn);
 
     groupBox->setLayout(layout);
 
@@ -129,6 +131,19 @@ void EditorPanel::updateBboxLabels(float xNew, float yNew, float zNew) {
     width->setText(QString::number(x, 'f', 2) + unit);
     height->setText(QString::number(y, 'f', 2) + unit);
     depth->setText(QString::number(z, 'f', 2) + unit);
+}
+
+void EditorPanel::updateOrientation(float xRotate, float yRotate, float zRotate) {
+    // convert floats to closest ints between -180 and 180
+    int xRotateInt = (xRotate) >= 0 ? (float)(xRotate+0.5) : (float)(xRotate-0.5);
+    xRotateInt = ((xRotateInt + 180) % 360) - 180;
+    xRotateSlider->setValue(xRotateInt);
+    int yRotateInt = (yRotate) >= 0 ? (float)(yRotate+0.5) : (float)(yRotate-0.5);
+    yRotateInt = ((yRotateInt + 180) % 360) - 180;
+    yRotateSlider->setValue(yRotateInt);
+    int zRotateInt = (zRotate) >= 0 ? (float)(zRotate+0.5) : (float)(zRotate-0.5);
+    zRotateInt = ((zRotateInt + 180) % 360) - 180;
+    zRotateSlider->setValue(zRotateInt);
 }
 
 void EditorPanel::updateBboxUnits(int index) {

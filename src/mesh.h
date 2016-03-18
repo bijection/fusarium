@@ -21,6 +21,7 @@ class Mesh
 public:
     Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices);
     void setTransform(float rotateX, float rotateY, float rotateZ);
+    float calculateProjectedArea(QVector3D norm);
     BoundingBox bbox;
 
 private:
