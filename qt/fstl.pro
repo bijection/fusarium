@@ -7,9 +7,9 @@ TEMPLATE = app
 QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE += -O3
 
-INCLUDEPATH += /usr/local/include
+INCLUDEPATH += /usr/local/include ../libigl/include /usr/local/include/eigen3
 
-LIBS += -L"/usr/local/lib" -lCGAL -lboost_thread-mt -lgmp -lmpfr -lgsl -lgslcblas -lm
+LIBS += -L"/usr/local/lib" -lCGAL -lboost_thread-mt -lgmp -lmpfr -lgsl -lgslcblas -lm -lboost_system
 
 SOURCES += \
     ../src/app.cpp\

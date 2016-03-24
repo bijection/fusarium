@@ -1,6 +1,21 @@
 #include "loader.h"
 
+#include <igl/readSTL.h>
+
+#define IGL_NO_CORK
+
 #include <fstream>
+#include <iostream>
+
+#include <igl/copyleft/boolean/mesh_boolean.h>
+#include <Eigen/Core>
+
+#include <QtDebug>
+
+#include <string>
+
+
+
 // #include <CGAL/Gmpq.h>
 // #include <CGAL/Extended_cartesian.h>
 // #include <CGAL/Nef_polyhedron_3.h>
@@ -96,88 +111,115 @@ typedef std::pair<Vec3, GLuint> Vec3i;
 
 Mesh* Loader::load_stl()
 {
-    QFile file(filename);
-    file.open(QIODevice::ReadOnly);
-    if (file.read(5) == "solid")
-    {
-        emit error_ascii_stl();
-        return NULL;
-    }
-    // Skip the rest of the header material
-    file.read(75);
+    Eigen::MatrixXd VA,VB,VC,NA;
+    Eigen::MatrixXi FA,FB,FC;
 
-    QDataStream data(&file);
-    data.setByteOrder(QDataStream::LittleEndian);
-    data.setFloatingPointPrecision(QDataStream::SinglePrecision);
+    igl::readSTL(filename.toUtf8().constData(), VA, FA, NA);
 
-    // Load the triangle count from the .stl file
-    uint32_t tri_count;
-    data >> tri_count;
 
-    // Verify that the file is the right size
-    if (file.size() != 84 + tri_count*50)
-    {
-        emit error_bad_stl();
-        return NULL;
-    }
+    // QFile file(filename);
+    // file.open(QIODevice::ReadOnly);
+    // if (file.read(5) == "solid")
+    // {
+    //     emit error_ascii_stl();
+    //     return NULL;
+    // }
+    // // Skip the rest of the header material
+    // file.read(75);
 
-    // Extract vertices into an array of xyz, unsigned pairs
-    QVector<Vec3i> verts(tri_count*3);
+    // QDataStream data(&file);
+    // data.setByteOrder(QDataStream::LittleEndian);
+    // data.setFloatingPointPrecision(QDataStream::SinglePrecision);
 
-    // Dummy array, because readRawData is faster than skipRawData
-    char buffer[sizeof(float)*3];
+    // // Load the triangle count from the .stl file
+    // uint32_t tri_count;
+    // data >> tri_count;
 
-    // Store vertices in the array, processing one triangle at a time.
-    for (auto v=verts.begin(); v != verts.end(); v += 3)
-    {
-        // Skip face's normal vector
-        data.readRawData(buffer, 3*sizeof(float));
+    // // Verify that the file is the right size
+    // if (file.size() != 84 + tri_count*50)
+    // {
+    //     emit error_bad_stl();
+    //     return NULL;
+    // }
 
-        // Load vertex data from .stl file into vertices
-        data >> v[0].first.x >> v[0].first.y >> v[0].first.z;
-        data >> v[1].first.x >> v[1].first.y >> v[1].first.z;
-        data >> v[2].first.x >> v[2].first.y >> v[2].first.z;
+    // // Extract vertices into an array of xyz, unsigned pairs
+    // QVector<Vec3i> verts(tri_count*3);
 
-        // Skip face attribute
-        data.readRawData(buffer, sizeof(uint16_t));
-    }
+    // // Dummy array, because readRawData is faster than skipRawData
+    // char buffer[sizeof(float)*3];
 
-    // Save indicies as the second element in the array
-    // (so that we can reconstruct triangle order after sorting)
-    for (size_t i=0; i < tri_count*3; ++i)
-    {
-        verts[i].second = i;
-    }
+    // // Store vertices in the array, processing one triangle at a time.
+    // for (auto v=verts.begin(); v != verts.end(); v += 3)
+    // {
+    //     // Skip face's normal vector
+    //     data.readRawData(buffer, 3*sizeof(float));
 
-    // Sort the set of vertices (to deduplicate)
-    std::sort(verts.begin(), verts.end());
+    //     // Load vertex data from .stl file into vertices
+    //     data >> v[0].first.x >> v[0].first.y >> v[0].first.z;
+    //     data >> v[1].first.x >> v[1].first.y >> v[1].first.z;
+    //     data >> v[2].first.x >> v[2].first.y >> v[2].first.z;
 
-    // This vector will store triangles as sets of 3 indices
-    std::vector<GLuint> indices(tri_count*3);
+    //     // Skip face attribute
+    //     data.readRawData(buffer, sizeof(uint16_t));
+    // }
 
-    // Go through the sorted vertex list, deduplicating and creating
-    // an indexed geometry representation for the triangles.
-    // Unique vertices are moved so that they occupy the first vertex_count
-    // positions in the verts array.
-    size_t vertex_count = 0;
-    for (auto v : verts)
-    {
-        if (!vertex_count || v.first != verts[vertex_count-1].first)
-        {
-            verts[vertex_count++] = v;
-        }
-        indices[v.second] = vertex_count - 1;
-    }
-    verts.resize(vertex_count);
+    // // Save indicies as the second element in the array
+    // // (so that we can reconstruct triangle order after sorting)
+    // for (size_t i=0; i < tri_count*3; ++i)
+    // {
+    //     verts[i].second = i;
+    // }
 
-    std::vector<GLfloat> flat_verts;
-    flat_verts.reserve(vertex_count*3);
-    for (auto v : verts)
-    {
-        flat_verts.push_back(v.first.x);
-        flat_verts.push_back(v.first.y);
-        flat_verts.push_back(v.first.z);
-    }
+    // // Sort the set of vertices (to deduplicate)
+    // std::sort(verts.begin(), verts.end());
+
+    // // This vector will store triangles as sets of 3 indices
+    // std::vector<GLuint> indices(tri_count*3);
+
+    // // Go through the sorted vertex list, deduplicating and creating
+    // // an indexed geometry representation for the triangles.
+    // // Unique vertices are moved so that they occupy the first vertex_count
+    // // positions in the verts array.
+    // size_t vertex_count = 0;
+    // for (auto v : verts)
+    // {
+    //     if (!vertex_count || v.first != verts[vertex_count-1].first)
+    //     {
+    //         verts[vertex_count++] = v;
+    //     }
+    //     indices[v.second] = vertex_count - 1;
+    // }
+    // verts.resize(vertex_count);
+
+    // std::vector<GLfloat> flat_verts;
+    // flat_verts.reserve(vertex_count*3);
+    // for (auto v : verts)
+    // {
+    //     flat_verts.push_back(v.first.x);
+    //     flat_verts.push_back(v.first.y);
+    //     flat_verts.push_back(v.first.z);
+    // }
+
+
+
+    // GLfloat arr[] = {0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0};
+    // std::vector<GLfloat> tet_verts(arr, arr+sizeof(arr) / sizeof(arr[0]));
+
+    // GLuint arr2[]  = {0, 1, 2, 0, 1, 3, 0, 2, 3, 1, 2, 3};
+    // std::vector<GLuint> tet_indices(arr2, arr2+sizeof(arr2) / sizeof(arr2[0]));
+    
+
+
+
+    // igl::copyleft::boolean::mesh_boolean(
+    //     VA,
+    //     FA,
+    //     VB,
+    //     FB,
+    //     igl::copyleft::boolean::MESH_BOOLEAN_TYPE_UNION,
+    //     VC,
+    //     FC
+    // );
 
     // Polyhedron P_init, P_final;
     // polyhedron_builder<HalfedgeDS> builder(flat_verts, indices );
@@ -252,6 +294,24 @@ Mesh* Loader::load_stl()
     // } else {
     //     std::cout << "Error: Initial mesh is not closed." << std::endl;
     // }
+
+    std::vector<GLuint> indices;
+    std::vector<GLfloat> flat_verts;
+
+    for (size_t i = 0; i < FA.rows(); ++i)
+    {
+        indices.push_back(FA(i,0));
+        indices.push_back(FA(i,1));
+        indices.push_back(FA(i,2));
+    }
+
+    for (size_t i = 0; i < VA.rows(); ++i)
+    {
+        flat_verts.push_back(VA(i,0));
+        flat_verts.push_back(VA(i,1));
+        flat_verts.push_back(VA(i,2));
+    }
+
     return new Mesh(flat_verts, indices);
 }
 
