@@ -57,6 +57,7 @@ private:
     QGLShaderProgram quad_shader;
 
     GLMesh* glmesh;
+    GLMesh* glmoldMesh;
     Mesh* mesh;
     Backdrop* backdrop;
 
@@ -68,6 +69,7 @@ private:
 
     float meshRotateX, meshRotateY, meshRotateZ;
     float meshScale = 1;
+    bool glmoldGenerated = false;
 
     QPoint mouse_pos;
     QString status;

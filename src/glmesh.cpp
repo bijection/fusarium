@@ -45,6 +45,7 @@ bool GLMesh::checkForOverhangs(QVector3D norm) {
 
 void GLMesh::drawOverhangLine() {
     if (hasOverhang) {
+        qDebug() << "DRAWING OVERHANG";
         glColor3f(1.0, 1.0, 1.0);
         glLineWidth(5);
         glBegin(GL_LINES);
