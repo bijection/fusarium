@@ -138,43 +138,15 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
     minv.setCol(2, b);
     Matrix3f m = minv.inverse();
 
-    std::vector<Vector2f>* edges2d = get2DGraph(m);
-    std::vector<Vector2f>* contour = calculate2DContour(edges2d);
+    std::vector<Vector2f>* edges = getEdges(norm, m);
+    std::vector<Vector2f>* contour = sortIntoContour(edges, m);
+
     std::vector<GLfloat> new_verts;
     std::vector<GLuint> new_faces;
 
-    for (GLuint i = 0; i < contour->size()-1; i++) {
-        Vector3f projTopCoords = minv * Vector3f((*contour)[i][0],  5, (*contour)[i][1]);
-        Vector3f projBotCoords = minv * Vector3f((*contour)[i][0],  -5, (*contour)[i][1]);
-
-        new_verts.push_back(projTopCoords.x());
-        new_verts.push_back(projTopCoords.y());
-        new_verts.push_back(projTopCoords.z());
-        new_verts.push_back(projBotCoords.x());
-        new_verts.push_back(projBotCoords.y());
-        new_verts.push_back(projBotCoords.z());
-
-        if (i != contour->size() - 2) {
-            new_faces.push_back(2*i);
-            new_faces.push_back(2*i + 2);
-            new_faces.push_back(2*i + 3);
-            new_faces.push_back(2*i);
-            new_faces.push_back(2*i + 3);
-            new_faces.push_back(2*i + 1);
-        } else {
-            new_faces.push_back(2*i);
-            new_faces.push_back(0);
-            new_faces.push_back(1);
-            new_faces.push_back(2*i);
-            new_faces.push_back(1);
-            new_faces.push_back(2*i + 1);
-        }
-    }
-
-    GLuint offset = new_faces.size();
-    for (GLuint i = 0; i < edges2d->size()-1; i++) {
-        Vector3f projTopCoords = minv * Vector3f((*edges2d)[i][0],  1, (*edges2d)[i][1]);
-        Vector3f projBotCoords = minv * Vector3f((*edges2d)[i][0],  -1, (*edges2d)[i][1]);
+    for (GLuint i = 0; i < edges->size(); i++) {
+        Vector3f projTopCoords = minv * Vector3f((*edges)[i][0],  1, (*edges)[i][1]);
+        Vector3f projBotCoords = minv * Vector3f((*edges)[i][0],  -1, (*edges)[i][1]);
 
         new_verts.push_back(projTopCoords.x());
         new_verts.push_back(projTopCoords.y());
@@ -184,14 +156,15 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
         new_verts.push_back(projBotCoords.z());
 
         if (i%2 == 0) {
-            new_faces.push_back(offset + 2*i);
-            new_faces.push_back(offset + 2*i + 2);
-            new_faces.push_back(offset + 2*i + 3);
-            new_faces.push_back(offset + 2*i);
-            new_faces.push_back(offset + 2*i + 3);
-            new_faces.push_back(offset + 2*i + 1);
+            new_faces.push_back(2*i);
+            new_faces.push_back(2*i + 2);
+            new_faces.push_back(2*i + 3);
+            new_faces.push_back(2*i);
+            new_faces.push_back(2*i + 3);
+            new_faces.push_back(2*i + 1);
         }
     }
+
 
     return new Mesh(new_verts, new_faces);
 }
@@ -214,182 +187,152 @@ float get_line_intersection(Vector2f p0, Vector2f p1, Vector2f p2, Vector2f p3) 
     return -1; // No collision
 }
 
-std::vector<Vector2f>* Mesh::get2DGraph(Matrix3f m) {
-    std::vector<Vector2f> orig_edges2d = std::vector<Vector2f>(0);
-    std::vector<Vector2f>* edges2d = new std::vector<Vector2f>(0);
-    float eps = 10e-16;
+// std::vector<Vector2f>* Mesh::get2DGraph(Matrix3f m) {
+//     std::vector<Vector2f> orig_edges2d = std::vector<Vector2f>(0);
+//     std::vector<Vector2f>* edges2d = new std::vector<Vector2f>(0);
+//     float eps = 10e-16;
 
-    // project all edges down to xz plane
-    for (GLuint i = 0; i < indices.size(); i += 3) {
+//     // project all edges down to xz plane
+//     for (GLuint i = 0; i < indices.size(); i += 3) {
+//         GLuint xIdx = 3 * indices[i];
+//         GLuint yIdx = 3 * indices[i+1];
+//         GLuint zIdx = 3 * indices[i+2];
+
+//         Vector2f x2d = (m * Vector3f(vertices[xIdx], vertices[xIdx+1], vertices[xIdx+2])).xz();
+//         Vector2f y2d = (m * Vector3f(vertices[yIdx], vertices[yIdx+1], vertices[yIdx+2])).xz();
+//         Vector2f z2d = (m * Vector3f(vertices[zIdx], vertices[zIdx+1], vertices[zIdx+2])).xz();
+
+//         orig_edges2d.push_back(x2d);
+//         orig_edges2d.push_back(y2d);
+//         orig_edges2d.push_back(x2d);
+//         orig_edges2d.push_back(z2d);
+//         orig_edges2d.push_back(y2d);
+//         orig_edges2d.push_back(z2d);
+//     }
+
+//     // account for intersections
+//     for (GLuint i = 0; i < orig_edges2d.size(); i += 2) {
+//         if (i % (orig_edges2d.size()/10) == 0) {
+//             qDebug() << i << " out of " << orig_edges2d.size();
+//         }
+//         std::vector<float> ts = std::vector<float>(0);
+//         std::vector<float> sort_ts = std::vector<float>(0);
+//         Vector2f p0 = orig_edges2d[i];
+//         Vector2f p1 = orig_edges2d[i+1];
+//         // if this edge is not vertical
+//         if ((p0 - p1).abs() > eps) {
+//             for (GLuint j = 0; j < orig_edges2d.size(); j += 2) {
+//                 if (i != j) {
+//                     Vector2f p2 = orig_edges2d[j];
+//                     Vector2f p3 = orig_edges2d[j+1];
+//                     float t = get_line_intersection(p0, p1, p2, p3);
+//                     if (t > 0) {
+//                         ts.push_back(t);
+//                     }
+//                 }
+//             }
+//             // deduplicate
+//             ts.insert(ts.begin(), 0);
+//             ts.push_back(1);
+
+//             std::sort(ts.begin(), ts.end());
+//             std::unique_copy(ts.begin(), ts.end(), std::back_inserter(sort_ts),
+//                 [](double l, double r) { return std::abs(l - r) < 0.01; });
+
+//             // for (auto t: sort_ts) {
+//             //     std::cout << t << " ";
+//             // }
+//             // std::cout << std::endl;
+
+//             for (GLuint i = 0; i < sort_ts.size() - 1; i++) {
+//                 edges2d->push_back(p0 + sort_ts[i] * (p1-p0));
+//                 edges2d->push_back(p0 + sort_ts[i+1] * (p1-p0));
+//             }
+//         }
+//     }
+
+//     qDebug() << orig_edges2d.size() << " vs " << edges2d->size();
+//     return edges2d;
+// }
+
+// test if e1-e2 are an edge on triangle t1-t2-t3
+bool edgeInTriangle(Vector3f t1, Vector3f t2, Vector3f t3, Vector3f e1, Vector3f e2) {
+    return (((e1 == t1) && ((e2 == t2) || (e2 == t3))) ||
+            ((e1 == t2) && ((e2 == t1) || (e2 == t3))) ||
+            ((e1 == t3) && ((e2 == t1) || (e2 == t2))));
+};
+
+std::vector<Vector2f>* Mesh::getEdges(Vector3f n, Matrix3f m) {
+    std::vector<bool> isCulled = std::vector<bool>(indices.size()/3);
+    std::fill(isCulled.begin(), isCulled.end(), false);
+
+    for (GLuint i = 0; i < indices.size(); i+=3) {
         GLuint xIdx = 3 * indices[i];
         GLuint yIdx = 3 * indices[i+1];
         GLuint zIdx = 3 * indices[i+2];
 
-        Vector2f x2d = (m * Vector3f(vertices[xIdx], vertices[xIdx+1], vertices[xIdx+2])).xz();
-        Vector2f y2d = (m * Vector3f(vertices[yIdx], vertices[yIdx+1], vertices[yIdx+2])).xz();
-        Vector2f z2d = (m * Vector3f(vertices[zIdx], vertices[zIdx+1], vertices[zIdx+2])).xz();
+        Vector3f x = Vector3f(vertices[xIdx], vertices[xIdx+1], vertices[xIdx+2]);
+        Vector3f y = Vector3f(vertices[yIdx], vertices[yIdx+1], vertices[yIdx+2]);
+        Vector3f z = Vector3f(vertices[zIdx], vertices[zIdx+1], vertices[zIdx+2]);
 
-        orig_edges2d.push_back(x2d);
-        orig_edges2d.push_back(y2d);
-        orig_edges2d.push_back(x2d);
-        orig_edges2d.push_back(z2d);
-        orig_edges2d.push_back(y2d);
-        orig_edges2d.push_back(z2d);
+        if (Vector3f::dot(Vector3f::cross(y-x, z-x).normalized(), n) <= 0) {
+            isCulled[i/3] = true;
+        }
     }
 
-    // account for intersections
-    for (GLuint i = 0; i < orig_edges2d.size(); i += 2) {
-        if (i % (orig_edges2d.size()/10) == 0) {
-            qDebug() << i << " out of " << orig_edges2d.size();
-        }
-        std::vector<float> ts = std::vector<float>(0);
-        std::vector<float> sort_ts = std::vector<float>(0);
-        Vector2f p0 = orig_edges2d[i];
-        Vector2f p1 = orig_edges2d[i+1];
-        // if this edge is not vertical
-        if ((p0 - p1).abs() > eps) {
-            for (GLuint j = 0; j < orig_edges2d.size(); j += 2) {
-                if (i != j) {
-                    Vector2f p2 = orig_edges2d[j];
-                    Vector2f p3 = orig_edges2d[j+1];
-                    float t = get_line_intersection(p0, p1, p2, p3);
-                    if (t > 0) {
-                        ts.push_back(t);
+    std::vector<Vector2f> *edges = new std::vector<Vector2f>();
+
+    for (GLuint i = 0; i < indices.size(); i+=3) {
+        if (isCulled[i/3]) {
+            for (GLuint j = 0; j < indices.size(); j+=3) {
+                if (!isCulled[j/3]) {
+                    GLuint xiIdx = 3 * indices[i];
+                    GLuint yiIdx = 3 * indices[i+1];
+                    GLuint ziIdx = 3 * indices[i+2];
+
+                    Vector3f xi = Vector3f(vertices[xiIdx], vertices[xiIdx+1], vertices[xiIdx+2]);
+                    Vector3f yi = Vector3f(vertices[yiIdx], vertices[yiIdx+1], vertices[yiIdx+2]);
+                    Vector3f zi = Vector3f(vertices[ziIdx], vertices[ziIdx+1], vertices[ziIdx+2]);
+
+                    GLuint xjIdx = 3 * indices[j];
+                    GLuint yjIdx = 3 * indices[j+1];
+                    GLuint zjIdx = 3 * indices[j+2];
+
+                    Vector3f xj = Vector3f(vertices[xjIdx], vertices[xjIdx+1], vertices[xjIdx+2]);
+                    Vector3f yj = Vector3f(vertices[yjIdx], vertices[yjIdx+1], vertices[yjIdx+2]);
+                    Vector3f zj = Vector3f(vertices[zjIdx], vertices[zjIdx+1], vertices[zjIdx+2]);
+
+                    if (edgeInTriangle(xj,yj,zj,xi,yi)) {
+                        edges->push_back((m * xi).xz());
+                        edges->push_back((m * yi).xz());
+                    }
+                    if (edgeInTriangle(xj,yj,zj,yi,zi)) {
+                        edges->push_back((m * yi).xz());
+                        edges->push_back((m * zi).xz());
+                    }
+                    if (edgeInTriangle(xj,yj,zj,xi,zi)) {
+                        edges->push_back((m * xi).xz());
+                        edges->push_back((m * zi).xz());
                     }
                 }
             }
-            // deduplicate
-            ts.insert(ts.begin(), 0);
-            ts.push_back(1);
-
-            std::sort(ts.begin(), ts.end());
-            std::unique_copy(ts.begin(), ts.end(), std::back_inserter(sort_ts),
-                [](double l, double r) { return std::abs(l - r) < 0.01; });
-
-            // for (auto t: sort_ts) {
-            //     std::cout << t << " ";
-            // }
-            // std::cout << std::endl;
-
-            for (GLuint i = 0; i < sort_ts.size() - 1; i++) {
-                edges2d->push_back(p0 + sort_ts[i] * (p1-p0));
-                edges2d->push_back(p0 + sort_ts[i+1] * (p1-p0));
-            }
         }
     }
 
-    qDebug() << orig_edges2d.size() << " vs " << edges2d->size();
-    return edges2d;
+    return edges;
 }
 
-std::vector<Vector2f>* Mesh::calculate2DContour(std::vector<Vector2f>* edges2dPtr) {
-    float eps = 10e-16;
-    std::vector<Vector2f> edges2d = *edges2dPtr;
-    // find point with largest x coordinate
-    Vector2f rightmostPt = edges2d[0];
+std::vector<Vector2f>* Mesh::sortIntoContour(std::vector<Vector2f>* ePtr, Matrix3f m) {
+    // std::list<Vector2f> edges;
+    // std::copy(ePtr->begin(), ePtr->end(), std::back_inserter( list ) );
 
-    float runningMax = -10e10;
-    for (GLuint i = 0; i < edges2d.size(); i++) {
-        Vector2f v = edges2d[i];
-        if (v.x() > runningMax) {
-            runningMax = v.x();
-            rightmostPt = v;
-        }
-    };
+    // std::vector<Vector2f> *contour = new std::vector<Vector2f>();
+    // for (auto it = edges.begin(); it != edges.end(); ++it) {
 
-    qDebug() << "rightmostPt Is :";
-    rightmostPt.print();
-
-    std::vector<Vector2f> neighbors;
-    std::vector<Vector2f>* contour = new std::vector<Vector2f>(0);
-    float mostRecentAngle = 0;
-    contour->push_back(rightmostPt);
-
-    Vector2f currentPt = rightmostPt;
-    float cumulativeAngle = 0;
-
-    int ctr = 0;
-    do {
-        // loop through list of edges
-        for (GLuint i = 0; i < edges2d.size(); i+= 2) {
-            Vector2f x = edges2d[i];
-            Vector2f y = edges2d[i+1];
-            float eps = 2;
-
-            if ((x - currentPt).abs() < eps) {
-                neighbors.push_back(y);
-            } else if ((y - currentPt).abs() < eps) {
-                neighbors.push_back(x);
-            }
-
-        }
-
-        float runningMin = 2 * M_PI;
-        float angleDelta;
-        if (neighbors.size() == 0) {
-            qDebug() << "Error: no neighbors found!";
-        }
-
-        Vector2f nextPt = neighbors[0];
-        float nextMostRecentAngle;
+    // }
+    return ePtr;
 
 
-        for (GLuint i = 0; i < neighbors.size(); i++) {
-            Vector2f neighborPt = neighbors[i];
-
-            Vector2f displacement = neighborPt - currentPt;
-            float absoluteAngle = atan2(displacement[1], displacement[0]);
-
-            angleDelta = mostRecentAngle - absoluteAngle;
-            if (angleDelta < 0 ) angleDelta += 2 * M_PI;
-
-            // qDebug() << "Neighbor " << " " << mostRecentAngle << " " << absoluteAngle << " " << angleDelta << " " << runningMin;
-
-            if (angleDelta <= runningMin && angleDelta > 0) {
-                runningMin = angleDelta;
-                nextMostRecentAngle = absoluteAngle;
-                nextPt = neighborPt;
-            }
-        }
-
-        // check all other edges if when projected down to XZ they cross this line
-        bool hasIntersection = false;
-        float tIntersect = 1;
-        for (GLuint i = 0; i < edges2d.size(); i+= 3) {
-            Vector2f cross1 = edges2d[i];
-            Vector2f cross2 = edges2d[i+1];
-
-            if ((cross1 - currentPt).absSquared() > eps && (cross2 - currentPt).absSquared() > eps) {
-
-                float xyt = get_line_intersection(currentPt, nextPt, cross1, cross2);
-
-                if (xyt > 0) {
-                    qDebug() << "INTERSECTION FOUND: " << xyt;
-                    tIntersect = fmin(tIntersect, xyt);
-                }
-            }
-        }
-
-        if (tIntersect < 1) {
-            nextPt = currentPt + tIntersect * (nextPt - currentPt);
-        }
 
 
-        // add this neighbor to the contour
-        cumulativeAngle += angleDelta - M_PI;
-        mostRecentAngle = nextMostRecentAngle;
-        currentPt = nextPt;
-        contour->push_back(currentPt);
-
-        qDebug() << (angleDelta - M_PI) << cumulativeAngle;
-
-        neighbors.clear();
-        ctr ++;
-
-    } while ((currentPt - rightmostPt).absSquared() > 1e-16 && ctr < 50);
-        //&& !(std::find(contour->begin(), contour->end(), nextIdx) != contour->end() - 1));
-
-    qDebug() << contour->size();
-
-    return contour;
 }

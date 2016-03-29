@@ -28,8 +28,8 @@ public:
     BoundingBox bbox;
 
 private:
-    std::vector<Vector2f>* get2DGraph(Matrix3f m);
-    std::vector<Vector2f>* calculate2DContour(std::vector<Vector2f>* edges2d);
+    std::vector<Vector2f>* getEdges(Vector3f n, Matrix3f m);
+    std::vector<Vector2f>* sortIntoContour(std::vector<Vector2f>* edges, Matrix3f m);
     std::vector<GLfloat> vertices;
     std::vector<GLuint> indices;
     QMatrix4x4 transform;
