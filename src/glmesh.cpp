@@ -38,6 +38,22 @@ void GLMesh::draw(GLuint vp)
     indices.release();
 }
 
+bool GLMesh::checkForOverhangs(QVector3D norm) {
+    hasOverhang = mesh->checkForOverhangs(norm, start, end);
+    return hasOverhang;
+}
+
+void GLMesh::drawOverhangLine() {
+    if (hasOverhang) {
+        glColor3f(1.0, 1.0, 1.0);
+        glLineWidth(5);
+        glBegin(GL_LINES);
+        glVertex3f(start.x(), start.y(), start.z());
+        glVertex3f(end.x(), end.y(), end.z());
+        glEnd();
+    }
+}
+
 void GLMesh::drawBoundingBox()
 {
     BoundingBox bbox = mesh->bbox;

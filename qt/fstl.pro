@@ -20,9 +20,24 @@ SOURCES += \
     ../src/glmesh.cpp \
     ../src/loader.cpp \
     ../src/window.cpp \
-    ../src/backdrop.cpp
+    ../src/backdrop.cpp \
+    ../vecmath/Matrix2f.cpp \
+    ../vecmath/Matrix3f.cpp \
+    ../vecmath/Matrix4f.cpp \
+    ../vecmath/Quat4f.cpp \
+    ../vecmath/Vector2f.cpp \
+    ../vecmath/Vector3f.cpp \
+    ../vecmath/Vector4f.cpp
 
 HEADERS  += \
+    ../vecmath/Matrix2f.h \
+    ../vecmath/Matrix3f.h \
+    ../vecmath/Matrix4f.h \
+    ../vecmath/Quat4f.h \
+    ../vecmath/vecmath.h \
+    ../vecmath/Vector2f.h \
+    ../vecmath/Vector3f.h \
+    ../vecmath/Vector4f.h \
     ../src/app.h\
     ../src/canvas.h \
     ../src/editorpanel.h \

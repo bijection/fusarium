@@ -117,9 +117,12 @@ void Canvas::updateMeshBbox() {
 }
 
 void Canvas::generateMold() {
-    std::cout << "Printing" << std::endl;
-    mesh = mesh->getExtrudedOutline();
-    glmesh = new GLMesh(mesh);
+    std::cout << "Generating " << std::endl;
+    QMatrix4x4 m;
+    m.rotate(meshRotateX, QVector3D(1, 0, 0));
+    m.rotate(meshRotateY, QVector3D(0, 1, 0));
+    m.rotate(meshRotateZ, QVector3D(0, 0, 1));
+    qDebug() << glmesh->checkForOverhangs(QVector3D(0, 0, 1) * m);
 }
 
 void Canvas::initializeGL()
@@ -188,6 +191,17 @@ void Canvas::draw_mesh()
                 line_shader.uniformLocation("view_matrix"),
                 1, GL_FALSE, view_matrix().data());
     glmesh->drawBoundingBox();
+
+    line_shader.release();
+    line_shader.bind();
+    glUniformMatrix4fv(
+                line_shader.uniformLocation("transform_matrix"),
+                1, GL_FALSE, transform_matrix().data());
+    glUniformMatrix4fv(
+                line_shader.uniformLocation("view_matrix"),
+                1, GL_FALSE, view_matrix().data());
+
+    glmesh->drawOverhangLine();
 
     // Clean up state machine
     glDisableVertexAttribArray(vp);

@@ -138,14 +138,16 @@ Mesh* Loader::load_stl()
     {
         double eps = 1e-16;
         Vec3 delta = v.first - verts[vertex_count-1].first;
-        // if (!vertex_count || v.first != verts[vertex_count-1].first)
-        if (!vertex_count || delta.length() >= eps)
+        if (!vertex_count || v.first != verts[vertex_count-1].first)
+        // if (!vertex_count || delta.length() >= eps)
         {
             verts[vertex_count++] = v;
         }
         indices[v.second] = vertex_count - 1;
     }
     verts.resize(vertex_count);
+
+    qDebug() << vertex_count;
 
     std::vector<GLfloat> flat_verts;
     flat_verts.reserve(vertex_count*3);

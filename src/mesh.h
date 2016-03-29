@@ -22,6 +22,7 @@ public:
     Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices);
     void setTransform(float rotateX, float rotateY, float rotateZ);
     float calculateProjectedArea(QVector3D norm);
+    bool checkForOverhangs(QVector3D norm, QVector3D &start, QVector3D &end) const;
     Mesh* getExtrudedOutline();
     BoundingBox bbox;
 

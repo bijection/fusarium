@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <cmath>
-
+#include "../vecmath/vecmath.h"
 #include "mesh.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -65,6 +65,60 @@ float Mesh::calculateProjectedArea(QVector3D norm) {
         totalArea += area;
     }
     return totalArea;
+}
+
+bool Mesh::checkForOverhangs(QVector3D dir, QVector3D &qStart, QVector3D &qEnd) const {
+
+    Vector3f direction = Vector3f(dir.x(), dir.y(), dir.z());
+    for (GLuint i = 0; i < vertices.size(); i += 3) {
+        Vector3f origin = Vector3f(vertices[i], vertices[i+1], vertices[i+2]);
+        int hits = 0;
+        float minT = -1;
+        float maxT = 1;
+        for (GLuint j = 0; j < indices.size(); j += 3) {
+            if (i != 3*indices[j] && i != 3*indices[j+1] && i != 3*indices[j+2]) {
+                Vector3f triA = Vector3f(vertices[3*indices[j]], vertices[3*indices[j]+1], vertices[3*indices[j]+2]);
+                Vector3f triB = Vector3f(vertices[3*indices[j+1]], vertices[3*indices[j+1]+1], vertices[3*indices[j+1]+2]);
+                Vector3f triC = Vector3f(vertices[3*indices[j+2]], vertices[3*indices[j+2]+1], vertices[3*indices[j+2]+2]);
+
+                Matrix3f A = Matrix3f();
+                A.setCol(0, triA - triB);
+                A.setCol(1, triA - triC);
+                A.setCol(2, direction);
+                float detA = A.determinant();
+
+                Matrix3f betaMatrix = Matrix3f(A);
+                betaMatrix.setCol(0, triA - origin);
+                float beta = betaMatrix.determinant() / detA;
+
+                Matrix3f gammaMatrix = Matrix3f(A);
+                gammaMatrix.setCol(1, triA - origin);
+                float gamma = gammaMatrix.determinant() / detA;
+
+                Matrix3f tMatrix = Matrix3f(A);
+                tMatrix.setCol(2, triA - origin);
+                float t = tMatrix.determinant() / detA;
+
+                if ((beta + gamma) < 1 && beta > 0 && gamma > 0 && std::abs(t) >= 1e-16) {
+                    hits += 1;
+                    minT = fmin(minT, t);
+                    maxT = fmax(maxT, t);
+                    if (hits > 1) {
+                        Vector3f start = origin + (minT-1) * direction;
+                        Vector3f end = origin + (maxT+1) * direction;
+                        qStart.setX(start.x());
+                        qStart.setY(start.y());
+                        qStart.setZ(start.z());
+                        qEnd.setX(end.x());
+                        qEnd.setY(end.y());
+                        qEnd.setZ(end.z());
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }
 
 Mesh* Mesh::getExtrudedOutline() {
