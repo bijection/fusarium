@@ -12,6 +12,7 @@ public:
     QSlider *zRotateSlider;
     QSlider *scaleSlider;
     QPushButton *optimizeBtn;
+    QPushButton *generateMoldBtn;
 
 public slots:
     void updateBboxLabels(float x, float y, float z);

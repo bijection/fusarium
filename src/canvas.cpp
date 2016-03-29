@@ -28,7 +28,7 @@ Canvas::~Canvas()
 void Canvas::load_mesh(Mesh* m)
 {
     mesh = m;
-    glmesh = new GLMesh(m);
+    glmesh = new GLMesh(mesh);
 
     meshRotateX = 0;
     meshRotateY = 0;
@@ -110,11 +110,16 @@ void Canvas::updateMeshBbox() {
     m.rotate(meshRotateZ, QVector3D(0, 0, 1));
     mesh->calculateProjectedArea(QVector3D(0, 0, 1) * m);
 
-
     emit updatedBbox(
         (bbox.xmax - bbox.xmin) * meshScale,
         (bbox.ymax - bbox.ymin) * meshScale,
         (bbox.zmax - bbox.zmin) * meshScale);
+}
+
+void Canvas::generateMold() {
+    std::cout << "Printing" << std::endl;
+    mesh = mesh->getExtrudedOutline();
+    glmesh = new GLMesh(mesh);
 }
 
 void Canvas::initializeGL()

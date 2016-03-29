@@ -91,12 +91,12 @@ QGroupBox *EditorPanel::createParametersGroup()
 	QSlider* zThickness = new QSlider(Qt::Horizontal);
 	QSlider* moldWidth = new QSlider(Qt::Horizontal);
 	QSlider* connectors = new QSlider(Qt::Horizontal);
-	QPushButton* generateMold = new QPushButton(tr("Generate Mold"));
+	generateMoldBtn = new QPushButton(tr("Generate Mold"));
 
     layout->addRow(new QLabel(tr("Z Thickness")), zThickness);
     layout->addRow(new QLabel(tr("Mold Width")), moldWidth);
     layout->addRow(new QLabel(tr("Connectors")), connectors);
-    layout->addRow(generateMold);
+    layout->addRow(generateMoldBtn);
 
     groupBox->setLayout(layout);
     return groupBox;

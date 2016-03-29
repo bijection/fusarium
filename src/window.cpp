@@ -71,8 +71,8 @@ void Window::initWidgets(QGridLayout* layout) {
     QObject::connect(editorPanel->scaleSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshScale(int)));
     QObject::connect(canvas, &Canvas::updatedBbox, editorPanel, &EditorPanel::updateBboxLabels);
     QObject::connect(editorPanel->optimizeBtn, SIGNAL(clicked()), canvas, SLOT(optimizeMesh()));
+    QObject::connect(editorPanel->generateMoldBtn, SIGNAL(clicked()), canvas, SLOT(generateMold()));
     QObject::connect(canvas, &Canvas::updatedOrientation, editorPanel, &EditorPanel::updateOrientation);
-
 }
 
 void Window::on_open()

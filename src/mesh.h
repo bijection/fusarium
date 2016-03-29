@@ -22,9 +22,11 @@ public:
     Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices);
     void setTransform(float rotateX, float rotateY, float rotateZ);
     float calculateProjectedArea(QVector3D norm);
+    Mesh* getExtrudedOutline();
     BoundingBox bbox;
 
 private:
+    std::vector<GLuint>* calculate2DContour();
     std::vector<GLfloat> vertices;
     std::vector<GLuint> indices;
     QMatrix4x4 transform;

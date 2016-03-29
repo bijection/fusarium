@@ -35,6 +35,7 @@ public slots:
     void setMeshRotateZ(int degrees);
     void setMeshScale(int factor);
     void optimizeMesh();
+    void generateMold();
 
 protected:
     void mousePressEvent(QMouseEvent* event);
