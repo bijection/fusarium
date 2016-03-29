@@ -147,8 +147,6 @@ Mesh* Loader::load_stl()
     }
     verts.resize(vertex_count);
 
-    qDebug() << vertex_count;
-
     std::vector<GLfloat> flat_verts;
     flat_verts.reserve(vertex_count*3);
     for (auto v : verts)
