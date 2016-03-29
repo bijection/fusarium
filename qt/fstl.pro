@@ -7,7 +7,7 @@ TEMPLATE = app
 QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE += -O3
 
-INCLUDEPATH += /usr/local/include ../libigl/include /usr/local/include/eigen3
+INCLUDEPATH += /usr/local/include /usr/local/include/eigen3 ../lib/libigl/include
 
 LIBS += -L"/usr/local/lib" -lCGAL -lboost_thread-mt -lgmp -lmpfr -lgsl -lgslcblas -lm -lboost_system
 
@@ -20,6 +20,7 @@ SOURCES += \
     ../src/glmesh.cpp \
     ../src/loader.cpp \
     ../src/window.cpp \
+    ../src/clipper.cpp \
     ../src/backdrop.cpp
 
 HEADERS  += \
@@ -30,6 +31,7 @@ HEADERS  += \
     ../src/glmesh.h \
     ../src/loader.h \
     ../src/window.h \
+    ../src/clipper.hpp \
     ../src/backdrop.h
 
 CONFIG += c++11
