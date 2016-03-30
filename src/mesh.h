@@ -28,10 +28,13 @@ public:
     BoundingBox bbox;
 
 private:
-    std::vector<Vector3f>* getEdges(Vector3f n, Matrix3f m);
+    std::vector<Vector3f>* getEdges(Vector3f n);
     std::vector<Vector3f>* sortIntoContour(std::vector<Vector3f>* edges, Matrix3f m);
     std::vector<GLfloat> vertices;
     std::vector<GLuint> indices;
+    // void fillInContour(std::vector<Vector3f> *contour, Matrix3f m, std::vector<GLfloat> &new_verts, std::vector<GLuint> &new_faces);
+    std::vector<Vector3f>* fillInContour(std::vector<Vector3f> *contour, std::vector<Vector3f> *bigContour, Matrix3f m, std::vector<GLfloat> &new_verts, std::vector<GLuint> &new_faces);
+
     QMatrix4x4 transform;
 
     friend class GLMesh;

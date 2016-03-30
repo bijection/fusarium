@@ -127,8 +127,9 @@ void Canvas::generateMold() {
     //     qDebug() << "Overhangs exist";
     // } else {
         qDebug() << "No overhangs";
-        glmoldMesh = new GLMesh(mesh->getExtrudedOutline(QVector3D(0, 0, 1) * m));
-        glmoldGenerated = true;
+        mesh = mesh->getExtrudedOutline(QVector3D(0, 0, 1) * m);
+        glmesh = new GLMesh(mesh);
+        // glmoldGenerated = true;
     // }
     update();
 }
