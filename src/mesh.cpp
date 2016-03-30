@@ -4,8 +4,11 @@
 
 #include <iostream>
 #include <cmath>
+#include <limits>
 #include "../vecmath/vecmath.h"
 #include "mesh.h"
+#include "clipper.hpp"
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -121,6 +124,60 @@ bool Mesh::checkForOverhangs(QVector3D dir, QVector3D &qStart, QVector3D &qEnd) 
     return false;
 }
 
+std::vector<Vector3f>* expandContour(std::vector<Vector3f>* contour, Matrix3f m){
+    using namespace ClipperLib;
+
+    float precision = 1e8;
+
+    Path subj;
+    Paths solution;
+    
+    qDebug() << "setting up path, contour size "<< contour->size();
+
+    for (size_t i = 0; i < contour->size(); ++i) {
+        Vector3f point = m * (*contour)[i];
+        qDebug() << "creating point" << point.x() << " " << point.z();
+        subj << IntPoint(point.x()*precision, point.z()*precision);
+    }
+
+    qDebug() << "expanding";
+
+    ClipperOffset co;
+    co.AddPath(subj, jtMiter, etClosedPolygon);
+    co.Execute(solution, 1e8);
+
+    qDebug() << "converting expanded path to 4d " << solution.size();
+
+
+    // for (size_t i = 0; i < solution.size(); ++i) {
+    // for (size_t j = 0; j < solution[i].size(); ++j) {
+    //     qDebug() << solution[i][j].X << " " << solution[i][j].Y;
+    // }}
+
+    std::vector<Vector3f> *expanded = new std::vector<Vector3f>();
+    for (size_t i = 0; i < solution[0].size(); ++i) {
+        
+        Vector2f point = Vector2f(solution[0][i].X / precision, solution[0][i].Y / precision);
+
+        float closestDist = std::numeric_limits<float>::infinity();
+        float closestY;
+        float dist;
+        for (size_t j = 0; j < contour->size(); ++j) {
+            Vector3f cpoint = m * (*contour)[j];
+            dist = (cpoint.xz() - point).abs();
+            
+            if(dist < closestDist){
+                closestDist = dist;
+                closestY = cpoint.y();
+            }
+        }
+    
+        expanded->push_back(m.inverse() * Vector3f(solution[0][i].X / precision, closestY, solution[0][i].Y/ precision));
+    }
+
+    return expanded;
+}
+
 Mesh* Mesh::getExtrudedOutline(QVector3D n) {
     Vector3f norm = Vector3f(n.x(), n.y(), n.z());
     Vector3f a, b;
@@ -140,9 +197,15 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
 
     std::vector<Vector3f>* edges = getEdges(norm, m);
     std::vector<Vector3f>* contour = sortIntoContour(edges, m);
+    qDebug() << "Preparing to expand";
+
+    std::vector<Vector3f>* bigContour = expandContour(contour, m);
+
+    contour = bigContour;
 
     std::vector<GLfloat> new_verts;
     std::vector<GLuint> new_faces;
+
 
     for (GLuint i = 0; i < contour->size(); i++) {
         Vector2f point2d = (m * (*contour)[i]).xz();

@@ -21,6 +21,7 @@ SOURCES += \
     ../src/loader.cpp \
     ../src/window.cpp \
     ../src/backdrop.cpp \
+    ../src/clipper.cpp \
     ../vecmath/Matrix2f.cpp \
     ../vecmath/Matrix3f.cpp \
     ../vecmath/Matrix4f.cpp \
@@ -38,6 +39,7 @@ HEADERS  += \
     ../vecmath/Vector2f.h \
     ../vecmath/Vector3f.h \
     ../vecmath/Vector4f.h \
+    ../src/clipper.hpp \
     ../src/app.h\
     ../src/canvas.h \
     ../src/editorpanel.h \
