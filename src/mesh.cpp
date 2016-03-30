@@ -7,6 +7,25 @@
 #include "../vecmath/vecmath.h"
 #include "mesh.h"
 
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Constrained_Delaunay_triangulation_2.h>
+#include <CGAL/Triangulation_vertex_base_with_info_2.h>
+#include <CGAL/Constrained_triangulation_plus_2.h>
+#include <CGAL/Polygon_2.h>
+
+struct vertexInfo
+{
+  GLuint index;
+};
+
+typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
+typedef CGAL::Triangulation_vertex_base_with_info_2<vertexInfo, K> Vb;
+typedef CGAL::Constrained_triangulation_face_base_2<K>           Fb;
+typedef CGAL::Triangulation_data_structure_2<Vb, Fb>                       Tds;
+typedef CGAL::Exact_predicates_tag                                Itag;
+typedef CGAL::Constrained_Delaunay_triangulation_2<K, Tds, Itag>  CDT;
+typedef K::Point_2                                                Point;
+typedef CGAL::Polygon_2<K>                                        Polygon_2;
 ////////////////////////////////////////////////////////////////////////////////
 
 Mesh::Mesh(std::vector<GLfloat> v, std::vector<GLuint> i)
@@ -121,6 +140,120 @@ bool Mesh::checkForOverhangs(QVector3D dir, QVector3D &qStart, QVector3D &qEnd) 
     return false;
 }
 
+    std::vector<GLfloat> new_verts;
+    std::vector<GLuint> new_faces;
+
+std::vector<Vector3f> *Mesh::fillInContour(std::vector<Vector3f> *contour, Matrix3f m,
+    std::vector<GLfloat> &new_verts, std::vector<GLuint> &new_faces) {
+    std::vector<Point> points;
+    std::vector<Vector3f> *newContour = new std::vector<Vector3f>();
+    Matrix3f minv = m.inverse();
+    for (GLuint i = 0; i < contour->size(); i++) {
+        Vector3f v = (*contour)[i];
+        Vector2f v2d = (m * v).xz();
+        points.push_back(Point(v2d[0], v2d[1]));
+        // qDebug() << i << v2d[0] << v2d[1];
+        new_verts.push_back(v[0]);
+        new_verts.push_back(v[1]);
+        new_verts.push_back(v[2]);
+    }
+
+    //Insert the polygons into a constrained triangulation
+    CDT cdt;
+    cdt.insert_constraint(points.begin(), points.end(), true);
+
+    // for (CDT::Finite_vertices_iterator vit = cdt.finite_vertices_begin();
+    //     vit != cdt.finite_vertices_end(); ++vit) {
+    //     Point& p0 = vit->point();
+    //     vit->info().index = -5;
+    //     // qDebug() << p0.x() << p0.y();
+    // }
+
+
+    for (CDT::Finite_faces_iterator ft = cdt.finite_faces_begin();
+        ft != cdt.finite_faces_end(); ++ft) {
+
+        CDT::Face f = *ft;
+        Point& p0 = ft->vertex(0)->point();
+        Point& p1 = ft->vertex(1)->point();
+        Point& p2 = ft->vertex(2)->point();
+
+        bool found0 = false;
+        bool found1 = false;
+        bool found2 = false;
+        int i0 = 0;
+        int i1 = 0;
+        int i2 = 0;
+
+        for (GLuint i = 0; i < points.size(); i++) {
+            if (points[i] == p0) {
+                found0 = true;
+                i0 = i;
+            }
+            if (points[i] == p1) {
+                found1 = true;
+                i1 = i;
+            }
+            if (points[i] == p2) {
+                found2 = true;
+                i2 = i;
+            }
+        }
+
+        qDebug() << i0 << i1 << i2;
+
+        if (!found0) {
+            Vector3f newPt = minv * Vector3f(p0.x(), 0, p0.y());
+            new_verts.push_back(newPt.x());
+            new_verts.push_back(newPt.y());
+            new_verts.push_back(newPt.z());
+            i0 = new_verts.size() - 2;
+            qDebug() << "New 0 at " << i0;
+            newPt.print();
+        }
+        if (!found1) {
+            Vector3f newPt = minv * Vector3f(p1.x(), 0, p1.y());
+            new_verts.push_back(newPt.x());
+            new_verts.push_back(newPt.y());
+            new_verts.push_back(newPt.z());
+            i1 = new_verts.size() - 2;
+            qDebug() << "New 1 at " << i1;
+            newPt.print();
+        }
+        if (!found2) {
+            Vector3f newPt = minv * Vector3f(p2.x(), 0, p2.y());
+            new_verts.push_back(newPt.x());
+            new_verts.push_back(newPt.y());
+            new_verts.push_back(newPt.z());
+            i2 = new_verts.size()-2;
+            qDebug() << "New 2 at " << i2;
+            newPt.print();
+        }
+
+        if (found0 && found1 && found2) {
+            new_faces.push_back(i0);
+            new_faces.push_back(i1);
+            new_faces.push_back(i2);
+        }
+    }
+
+    // for (CDT::Finite_edges_iterator eit = cdt.finite_edges_begin();
+    //     eit != cdt.finite_edges_end(); ++eit){
+
+    //     CDT::Edge f = *eit;
+    //     CDT::Segment s = cdt.segment(eit);
+    //     const Point& p0 = s.point(0);
+    //     const Point& p1 = s.point(1);
+
+    //     Vector3f v0 = minv * Vector3f(p0.x(), 0, p0.y());
+    //     Vector3f v1 = minv * Vector3f(p1.x(), 0, p1.y());
+    //     newContour->push_back(v0);
+    //     newContour->push_back(v1);
+
+    // }
+    return newContour;
+}
+
 Mesh* Mesh::getExtrudedOutline(QVector3D n) {
     Vector3f norm = Vector3f(n.x(), n.y(), n.z());
     Vector3f a, b;
@@ -138,43 +271,55 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
     minv.setCol(2, b);
     Matrix3f m = minv.inverse();
 
-    std::vector<Vector3f>* edges = getEdges(norm, m);
+    std::vector<Vector3f>* edges = getEdges(norm);
     std::vector<Vector3f>* contour = sortIntoContour(edges, m);
+
+    // std::vector<Vector3f>* oldContour = sortIntoContour(edges, m);
+    // std::vector<Vector3f>* contour = fillInContour(oldContour, m, new_verts, new_faces);
 
     std::vector<GLfloat> new_verts;
     std::vector<GLuint> new_faces;
 
-    for (GLuint i = 0; i < contour->size(); i++) {
-        Vector2f point2d = (m * (*contour)[i]).xz();
-        Vector3f projTopCoords = minv * Vector3f(point2d[0], 3, point2d[1]);
-        Vector3f projBotCoords = (*contour)[i];
-        // Vector3f projBotCoords = minv * Vector3f(point2d[0], -3, point2d[1]);
+    // for (GLuint i = 0; i < contour->size(); i++) {
+    //     Vector2f point2d = (m * (*contour)[i]).xz();
+    //     Vector3f projTopCoords = minv * Vector3f(point2d[0], 3, point2d[1]);
+    //     Vector3f projBotCoords = minv * Vector3f(point2d[0], -3, point2d[1]);
 
-        new_verts.push_back(projTopCoords.x());
-        new_verts.push_back(projTopCoords.y());
-        new_verts.push_back(projTopCoords.z());
-        new_verts.push_back(projBotCoords.x());
-        new_verts.push_back(projBotCoords.y());
-        new_verts.push_back(projBotCoords.z());
+    //     new_verts.push_back(projTopCoords.x());
+    //     new_verts.push_back(projTopCoords.y());
+    //     new_verts.push_back(projTopCoords.z());
+    //     new_verts.push_back(projBotCoords.x());
+    //     new_verts.push_back(projBotCoords.y());
+    //     new_verts.push_back(projBotCoords.z());
 
-        if (i < contour->size()-1) {
-            new_faces.push_back(2*i);
-            new_faces.push_back(2*i + 2);
-            new_faces.push_back(2*i + 3);
-            new_faces.push_back(2*i);
-            new_faces.push_back(2*i + 3);
-            new_faces.push_back(2*i + 1);
-        } else {
-            new_faces.push_back(2*i);
-            new_faces.push_back(0);
-            new_faces.push_back(1);
-            new_faces.push_back(2*i);
-            new_faces.push_back(1);
-            new_faces.push_back(2*i + 1);
+    //     if (i %2 == 0) {
+    //         new_faces.push_back(2*i);
+    //         new_faces.push_back(2*i + 2);
+    //         new_faces.push_back(2*i + 3);
+    //         new_faces.push_back(2*i);
+    //         new_faces.push_back(2*i + 3);
+    //         new_faces.push_back(2*i + 1);
+    //     }
 
-        }
-    }
 
+    //     if (i < contour->size()-1) {
+    //         new_faces.push_back(2*i);
+    //         new_faces.push_back(2*i + 2);
+    //         new_faces.push_back(2*i + 3);
+    //         new_faces.push_back(2*i);
+    //         new_faces.push_back(2*i + 3);
+    //         new_faces.push_back(2*i + 1);
+    //     } else {
+    //         new_faces.push_back(2*i);
+    //         new_faces.push_back(0);
+    //         new_faces.push_back(1);
+    //         new_faces.push_back(2*i);
+    //         new_faces.push_back(1);
+    //         new_faces.push_back(2*i + 1);
+    //     }
+    // }
+
+    fillInContour(contour, m, new_verts, new_faces);
 
     return new Mesh(new_verts, new_faces);
 }
@@ -204,7 +349,7 @@ bool edgeInTriangle(Vector3f t1, Vector3f t2, Vector3f t3, Vector3f e1, Vector3f
             ((e1 == t3) && ((e2 == t1) || (e2 == t2))));
 };
 
-std::vector<Vector3f>* Mesh::getEdges(Vector3f n, Matrix3f m) {
+std::vector<Vector3f>* Mesh::getEdges(Vector3f n) {
     std::vector<bool> isCulled = std::vector<bool>(indices.size()/3);
     std::fill(isCulled.begin(), isCulled.end(), false);
 
