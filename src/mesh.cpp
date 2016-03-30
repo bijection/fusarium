@@ -10,6 +10,7 @@
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Constrained_Delaunay_triangulation_2.h>
 #include <CGAL/Triangulation_vertex_base_with_info_2.h>
+#include <CGAL/Triangulation_face_base_with_info_2.h>
 #include <CGAL/Constrained_triangulation_plus_2.h>
 #include <CGAL/Polygon_2.h>
 
@@ -18,9 +19,16 @@ struct vertexInfo
   GLuint index;
 };
 
+struct FaceInfo2
+{
+  FaceInfo2(){}
+  int nesting_level;
+};
+
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Triangulation_vertex_base_with_info_2<vertexInfo, K> Vb;
-typedef CGAL::Constrained_triangulation_face_base_2<K>           Fb;
+typedef CGAL::Triangulation_face_base_with_info_2<FaceInfo2,K>    Fbb;
+typedef CGAL::Constrained_triangulation_face_base_2<K,Fbb>        Fb;
 typedef CGAL::Triangulation_data_structure_2<Vb, Fb>                       Tds;
 typedef CGAL::Exact_predicates_tag                                Itag;
 typedef CGAL::Constrained_Delaunay_triangulation_2<K, Tds, Itag>  CDT;
@@ -140,16 +148,42 @@ bool Mesh::checkForOverhangs(QVector3D dir, QVector3D &qStart, QVector3D &qEnd) 
     return false;
 }
 
-    std::vector<GLfloat> new_verts;
-    std::vector<GLuint> new_faces;
+void mark_domains(CDT& ct, CDT::Face_handle start, int index, std::list<CDT::Edge>& border) {
+    if (start->info().nesting_level != -1) {
+        return;
+    }
+    std::list<CDT::Face_handle> queue;
+    queue.push_back(start);
+    while (!queue.empty()) {
+        CDT::Face_handle fh = queue.front();
+        queue.pop_front();
+        if(fh->info().nesting_level == -1){
+            fh->info().nesting_level = index;
+            for(int i = 0; i < 3; i++){
+                CDT::Edge e(fh,i);
+                CDT::Face_handle n = fh->neighbor(i);
+                if (n->info().nesting_level == -1) {
+                    if (ct.is_constrained(e)) {
+                        border.push_back(e);
+                    } else {
+                        queue.push_back(n);
+                    }
+                }
+            }
+        }
+    }
+}
 
 std::vector<Vector3f> *Mesh::fillInContour(std::vector<Vector3f> *contour, Matrix3f m,
     std::vector<GLfloat> &new_verts, std::vector<GLuint> &new_faces) {
     std::vector<Point> points;
     std::vector<Vector3f> *newContour = new std::vector<Vector3f>();
     Matrix3f minv = m.inverse();
+
+    float aveY = 0;
     for (GLuint i = 0; i < contour->size(); i++) {
         Vector3f v = (*contour)[i];
+        aveY += v.y();
         Vector2f v2d = (m * v).xz();
         points.push_back(Point(v2d[0], v2d[1]));
         // qDebug() << i << v2d[0] << v2d[1];
@@ -157,6 +191,11 @@ std::vector<Vector3f> *Mesh::fillInContour(std::vector<Vector3f> *contour, Matri
         new_verts.push_back(v[1]);
         new_verts.push_back(v[2]);
     }
+    aveY = aveY / contour->size();
+
+    // aveY = 100;
+
+    qDebug() << contour->size() << " " << new_verts.size();
 
     //Insert the polygons into a constrained triangulation
     CDT cdt;
@@ -169,73 +208,112 @@ std::vector<Vector3f> *Mesh::fillInContour(std::vector<Vector3f> *contour, Matri
     //     // qDebug() << p0.x() << p0.y();
     // }
 
+    for(CDT::All_faces_iterator it = cdt.all_faces_begin(); it != cdt.all_faces_end(); ++it){
+        it->info().nesting_level = -1;
+    }
+    std::list<CDT::Edge> border;
+    mark_domains(cdt, cdt.infinite_face(), 0, border);
+    while(!border.empty()) {
+        CDT::Edge e = border.front();
+        border.pop_front();
+        CDT::Face_handle n = e.first->neighbor(e.second);
+        if(n->info().nesting_level == -1){
+            mark_domains(cdt, n, e.first->info().nesting_level+1, border);
+        }
+    }
+
 
     for (CDT::Finite_faces_iterator ft = cdt.finite_faces_begin();
         ft != cdt.finite_faces_end(); ++ft) {
+        if (ft->info().nesting_level >= 1) {
+            CDT::Face f = *ft;
+            Point& p0 = ft->vertex(0)->point();
+            Point& p1 = ft->vertex(1)->point();
+            Point& p2 = ft->vertex(2)->point();
 
-        CDT::Face f = *ft;
-        Point& p0 = ft->vertex(0)->point();
-        Point& p1 = ft->vertex(1)->point();
-        Point& p2 = ft->vertex(2)->point();
+            bool found0 = false;
+            bool found1 = false;
+            bool found2 = false;
+            int i0 = 0;
+            int i1 = 0;
+            int i2 = 0;
 
-        bool found0 = false;
-        bool found1 = false;
-        bool found2 = false;
-        int i0 = 0;
-        int i1 = 0;
-        int i2 = 0;
-
-        for (GLuint i = 0; i < points.size(); i++) {
-            if (points[i] == p0) {
-                found0 = true;
-                i0 = i;
+            for (GLuint i = 0; i < points.size(); i++) {
+                if (points[i] == p0) {
+                    found0 = true;
+                    i0 = i;
+                }
+                if (points[i] == p1) {
+                    found1 = true;
+                    i1 = i;
+                }
+                if (points[i] == p2) {
+                    found2 = true;
+                    i2 = i;
+                }
             }
-            if (points[i] == p1) {
-                found1 = true;
-                i1 = i;
+
+            if (!found0) {
+                float minDist = 10e10;
+                GLuint closestPt = 0;
+                for (GLuint i = 0; i < contour->size(); i++) {
+                    float dist = ((m * (*contour)[i]).xz() - Vector2f(p0.x(), p0.y())).abs();
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestPt = i;
+                    }
+                }
+                Vector3f newPt = minv * Vector3f(p0.x(), (m * (*contour)[closestPt]).y(), p0.y());
+                new_verts.push_back(newPt[0]);
+                new_verts.push_back(newPt[1]);
+                new_verts.push_back(newPt[2]);
+                i0 = (new_verts.size() - 3)/3;
+                newPt.print();
             }
-            if (points[i] == p2) {
-                found2 = true;
-                i2 = i;
+            if (!found1) {
+                float minDist = 10e10;
+                GLuint closestPt = 0;
+                for (GLuint i = 0; i < contour->size(); i++) {
+                    float dist = ((m * (*contour)[i]).xz() - Vector2f(p1.x(), p1.y())).abs();
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestPt = i;
+                    }
+                }
+                Vector3f newPt = minv * Vector3f(p1.x(), (m * (*contour)[closestPt]).y(), p1.y());
+                new_verts.push_back(newPt[0]);
+                new_verts.push_back(newPt[1]);
+                new_verts.push_back(newPt[2]);
+                i1 = (new_verts.size() - 3)/3;
+                newPt.print();
             }
-        }
+            if (!found2) {
+                float minDist = 10e10;
+                GLuint closestPt = 0;
+                for (GLuint i = 0; i < contour->size(); i++) {
+                    float dist = ((m * (*contour)[i]).xz() - Vector2f(p2.x(), p2.y())).abs();
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestPt = i;
+                    }
+                }
+                Vector3f newPt = minv * Vector3f(p2.x(), (m * (*contour)[closestPt]).y(), p2.y());
+                new_verts.push_back(newPt[0]);
+                new_verts.push_back(newPt[1]);
+                new_verts.push_back(newPt[2]);
+                i2 = (new_verts.size() - 3)/3;
+                newPt.print();
+            }
 
-        qDebug() << i0 << i1 << i2;
-
-        if (!found0) {
-            Vector3f newPt = minv * Vector3f(p0.x(), 0, p0.y());
-            new_verts.push_back(newPt.x());
-            new_verts.push_back(newPt.y());
-            new_verts.push_back(newPt.z());
-            i0 = new_verts.size() - 2;
-            qDebug() << "New 0 at " << i0;
-            newPt.print();
-        }
-        if (!found1) {
-            Vector3f newPt = minv * Vector3f(p1.x(), 0, p1.y());
-            new_verts.push_back(newPt.x());
-            new_verts.push_back(newPt.y());
-            new_verts.push_back(newPt.z());
-            i1 = new_verts.size() - 2;
-            qDebug() << "New 1 at " << i1;
-            newPt.print();
-        }
-        if (!found2) {
-            Vector3f newPt = minv * Vector3f(p2.x(), 0, p2.y());
-            new_verts.push_back(newPt.x());
-            new_verts.push_back(newPt.y());
-            new_verts.push_back(newPt.z());
-            i2 = new_verts.size()-2;
-            qDebug() << "New 2 at " << i2;
-            newPt.print();
-        }
-
-        if (found0 && found1 && found2) {
-            new_faces.push_back(i0);
-            new_faces.push_back(i1);
-            new_faces.push_back(i2);
+            qDebug() << i0 << i1 << i2;
+            // if (found0 && found1 && found2) {
+                new_faces.push_back(i0);
+                new_faces.push_back(i1);
+                new_faces.push_back(i2);
+            // }
         }
     }
+
 
     // for (CDT::Finite_edges_iterator eit = cdt.finite_edges_begin();
     //     eit != cdt.finite_edges_end(); ++eit){
@@ -320,6 +398,7 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
     // }
 
     fillInContour(contour, m, new_verts, new_faces);
+    qDebug() << " Here: " << new_verts.size();
 
     return new Mesh(new_verts, new_faces);
 }
