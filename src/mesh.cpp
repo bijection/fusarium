@@ -418,42 +418,59 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
 
     std::vector<GLfloat> new_verts;
     std::vector<GLuint> new_faces;
-
-
-    // Extrusion code
-    // for (GLuint i = 0; i < contour->size(); i++) {
-    //     Vector2f point2d = (m * (*contour)[i]).xz();
-    //     Vector3f projTopCoords = minv * Vector3f(point2d[0], 3, point2d[1]);
-    //     Vector3f projBotCoords = (*contour)[i];
-    //     // Vector3f projBotCoords = minv * Vector3f(point2d[0], -3, point2d[1]);
-
-    //     new_verts.push_back(projTopCoords.x());
-    //     new_verts.push_back(projTopCoords.y());
-    //     new_verts.push_back(projTopCoords.z());
-    //     new_verts.push_back(projBotCoords.x());
-    //     new_verts.push_back(projBotCoords.y());
-    //     new_verts.push_back(projBotCoords.z());
-
-    //     if (i < contour->size()-1) {
-    //         new_faces.push_back(2*i);
-    //         new_faces.push_back(2*i + 2);
-    //         new_faces.push_back(2*i + 3);
-    //         new_faces.push_back(2*i);
-    //         new_faces.push_back(2*i + 3);
-    //         new_faces.push_back(2*i + 1);
-    //     } else {
-    //         new_faces.push_back(2*i);
-    //         new_faces.push_back(0);
-    //         new_faces.push_back(1);
-    //         new_faces.push_back(2*i);
-    //         new_faces.push_back(1);
-    //         new_faces.push_back(2*i + 1);
-
-    //     }
-    // }
+    
 
     fillInContour(bigContour, contour, m, new_verts, new_faces);
     qDebug() << " Here: " << new_verts.size();
+
+
+    size_t new_verts_size = new_verts.size(); //top layer vert cout something not sure
+    size_t new_faces_size = new_faces.size(); //top layer vert cout something not sure
+
+    for(size_t i = 0; i < new_verts_size; i+=3){
+        Vector2f v2d = (m * Vector3f(new_verts[i], new_verts[i+1], new_verts[i+2])).xz();
+        Vector3f projBotCoords = minv * Vector3f(v2d[0], -5, v2d[1]);
+        new_verts.push_back(projBotCoords.x());
+        new_verts.push_back(projBotCoords.y());
+        new_verts.push_back(projBotCoords.z());
+    }
+
+    for(size_t i = 0; i < new_faces_size; i++){
+        new_faces.push_back(new_faces[i]+new_verts_size/3);
+    }
+
+    size_t contour_size = contour->size();
+
+    // Extrusion code
+    for (GLuint i = contour_size; i < bigContour->size()+contour_size; i++) {
+        // Vector2f point2d = (m * (*bigContour)[i]).xz();
+        // Vector3f projTopCoords = minv * Vector3f(point2d[0], 3, point2d[1]);
+        // Vector3f projBotCoords = (*bigContour)[i];
+        // Vector3f projBotCoords = minv * Vector3f(point2d[0], -3, point2d[1]);
+
+        // new_verts.push_back(projTopCoords.x());
+        // new_verts.push_back(projTopCoords.y());
+        // new_verts.push_back(projTopCoords.z());
+        // new_verts.push_back(projBotCoords.x());
+        // new_verts.push_back(projBotCoords.y());
+        // new_verts.push_back(projBotCoords.z());
+
+        if (i - contour_size < bigContour->size()-1) {
+            new_faces.push_back(i);
+            new_faces.push_back(i+1);
+            new_faces.push_back(i+new_verts_size / 3);
+            new_faces.push_back(i+1);
+            new_faces.push_back(i+1+new_verts_size / 3);
+            new_faces.push_back(i+new_verts_size / 3);
+        } else {
+            new_faces.push_back(i);
+            new_faces.push_back(contour_size);
+            new_faces.push_back(i+new_verts_size / 3);
+            new_faces.push_back(contour_size);
+            new_faces.push_back(contour_size+new_verts_size / 3);
+            new_faces.push_back(i+new_verts_size / 3);
+        }
+    }
 
     return new Mesh(new_verts, new_faces);
 }
