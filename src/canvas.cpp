@@ -119,18 +119,14 @@ void Canvas::updateMeshBbox() {
 
 void Canvas::generateMold() {
     QMatrix4x4 m;
-    qDebug() << "Rotations: " << meshRotateX << " " << meshRotateY << " " << meshRotateZ;
     m.rotate(meshRotateX, QVector3D(1, 0, 0));
     m.rotate(meshRotateY, QVector3D(0, 1, 0));
     m.rotate(meshRotateZ, QVector3D(0, 0, 1));
-    // if (glmesh->checkForOverhangs(QVector3D(0, 0, 1) * m)) {
-    //     qDebug() << "Overhangs exist";
-    // } else {
-        qDebug() << "No overhangs";
-        mesh = mesh->getExtrudedOutline(QVector3D(0, 0, 1) * m);
-        glmesh = new GLMesh(mesh);
-        // glmoldGenerated = true;
-    // }
+
+    std::pair<Mesh*, Mesh*> molds = mesh->generateMolds(QVector3D(0,0,1) * m);
+    glTopMold = new GLMesh(molds.first);
+    glBottomMold = new GLMesh(molds.second);
+    glmoldGenerated = true;
     update();
 }
 
@@ -191,7 +187,8 @@ void Canvas::draw_mesh()
     // Then draw the mesh with that vertex position
     glmesh->draw(vp);
     if (glmoldGenerated) {
-        glmoldMesh->draw(vp);
+        glTopMold->draw(vp);
+        glBottomMold->draw(vp);
     }
     mesh_shader.release();
 

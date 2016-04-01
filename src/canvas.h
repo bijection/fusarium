@@ -57,7 +57,8 @@ private:
     QGLShaderProgram quad_shader;
 
     GLMesh* glmesh;
-    GLMesh* glmoldMesh;
+    GLMesh* glTopMold;
+    GLMesh* glBottomMold;
     Mesh* mesh;
     Backdrop* backdrop;
 

@@ -24,7 +24,7 @@ public:
     void setTransform(float rotateX, float rotateY, float rotateZ);
     float calculateProjectedArea(QVector3D norm);
     bool checkForOverhangs(QVector3D norm, QVector3D &start, QVector3D &end) const;
-    Mesh* getExtrudedOutline(QVector3D norm);
+    std::pair<Mesh*, Mesh*> generateMolds(QVector3D norm);
     BoundingBox bbox;
 
 private:
@@ -32,8 +32,11 @@ private:
     std::vector<Vector3f>* sortIntoContour(std::vector<Vector3f>* edges, Matrix3f m);
     std::vector<GLfloat> vertices;
     std::vector<GLuint> indices;
-    // void fillInContour(std::vector<Vector3f> *contour, Matrix3f m, std::vector<GLfloat> &new_verts, std::vector<GLuint> &new_faces);
-    std::vector<Vector3f>* fillInContour(std::vector<Vector3f> *contour, std::vector<Vector3f> *bigContour, Matrix3f m, std::vector<GLfloat> &new_verts, std::vector<GLuint> &new_faces);
+    void fillInContour(std::vector<Vector3f> *contour, std::vector<Vector3f> *bigContour, Matrix3f m,
+        std::vector<Vector3f> &new_verts, std::vector<GLuint> &new_faces);
+    std::pair<std::vector<Vector3f>, std::vector<GLuint>> generateOuterBlock(
+        std::vector<Vector3f> &cutSurfaceVerts, std::vector<GLuint> &cutSurfaceFaces,
+        bool isUpper, size_t innerContourSize, size_t outerContourSize, Matrix3f m);
 
     QMatrix4x4 transform;
 

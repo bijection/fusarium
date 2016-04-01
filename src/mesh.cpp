@@ -154,15 +154,15 @@ bool Mesh::checkForOverhangs(QVector3D dir, QVector3D &qStart, QVector3D &qEnd) 
     return false;
 }
 
-std::vector<Vector3f>* expandContour(std::vector<Vector3f>* contour, Matrix3f m){
+std::vector<Vector3f>* expandContour(std::vector<Vector3f>* innerContour, Matrix3f m){
     using namespace ClipperLib;
     float precision = 1e8;
 
     Path subj;
     Paths solution;
 
-    for (size_t i = 0; i < contour->size(); ++i) {
-        Vector3f point = m * (*contour)[i];
+    for (size_t i = 0; i < innerContour->size(); ++i) {
+        Vector3f point = m * (*innerContour)[i];
         subj << IntPoint(point.x()*precision, point.z()*precision);
     }
 
@@ -178,8 +178,8 @@ std::vector<Vector3f>* expandContour(std::vector<Vector3f>* contour, Matrix3f m)
         float closestDist = std::numeric_limits<float>::infinity();
         float closestY;
         float dist;
-        for (size_t j = 0; j < contour->size(); ++j) {
-            Vector3f cpoint = m * (*contour)[j];
+        for (size_t j = 0; j < innerContour->size(); ++j) {
+            Vector3f cpoint = m * (*innerContour)[j];
             dist = (cpoint.xz() - point).abs();
 
             if(dist < closestDist){
@@ -220,15 +220,16 @@ void mark_domains(CDT& ct, CDT::Face_handle start, int index, std::list<CDT::Edg
     }
 }
 
-GLuint addNewVertex(std::vector<Vector3f> *bigContour, std::vector<Vector3f> *contour, std::vector<GLfloat>& new_verts, Point& p, Matrix3f m){
+GLuint addNewVertex(std::vector<Vector3f> *outerContour, std::vector<Vector3f> *innerContour,
+    std::vector<Vector3f>& allPoints, Point& p, Matrix3f m){
     float minDist = 10e10;
     GLuint closestIndex = 0;
-    for (GLuint i = 0; i < contour->size() + bigContour->size(); i++) {
+    for (GLuint i = 0; i < innerContour->size() + outerContour->size(); i++) {
         Vector3f v;
-        if(i >= contour->size()){
-            v = (*bigContour)[i - contour->size()];
+        if(i >= innerContour->size()){
+            v = (*outerContour)[i - innerContour->size()];
         } else {
-            v = (*contour)[i];
+            v = (*innerContour)[i];
         }
 
         float dist = ((m * v).xz() - Vector2f(p.x(), p.y())).abs();
@@ -238,49 +239,41 @@ GLuint addNewVertex(std::vector<Vector3f> *bigContour, std::vector<Vector3f> *co
         }
     }
     Vector3f wau;
-    if(closestIndex >= contour->size()){
-        wau = (*bigContour)[closestIndex - contour->size()];
+    if(closestIndex >= innerContour->size()){
+        wau = (*outerContour)[closestIndex - innerContour->size()];
     } else {
-        wau = (*contour)[closestIndex];
+        wau = (*innerContour)[closestIndex];
     }
     Vector3f newPt = m.inverse() * Vector3f(p.x(), (m * wau).y(), p.y());
-    new_verts.push_back(newPt[0]);
-    new_verts.push_back(newPt[1]);
-    new_verts.push_back(newPt[2]);
-    return (new_verts.size() - 3)/3;
+    allPoints.push_back(newPt);
+    return allPoints.size() - 1;
 }
 
 
-std::vector<Vector3f> *Mesh::fillInContour(std::vector<Vector3f> *bigContour, std::vector<Vector3f> *contour, Matrix3f m,
-    std::vector<GLfloat> &new_verts, std::vector<GLuint> &new_faces) {
-    std::vector<Point> points;
-    std::vector<Point> outerPoints;
-    std::vector<Vector3f> *newContour = new std::vector<Vector3f>();
+void Mesh::fillInContour(std::vector<Vector3f> *outerContour, std::vector<Vector3f> *innerContour, Matrix3f m,
+    std::vector<Vector3f> &allPoints, std::vector<GLuint> &allFaces) {
+    std::vector<Point> inner2dPoints;
+    std::vector<Point> outer2dPoints;
 
-    for (GLuint i = 0; i < contour->size(); i++) {
-        Vector3f v = (*contour)[i];
+    for (GLuint i = 0; i < innerContour->size(); i++) {
+        Vector3f v = (*innerContour)[i];
         Vector2f v2d = (m * v).xz();
-        points.push_back(Point(v2d[0], v2d[1]));
-        new_verts.push_back(v[0]);
-        new_verts.push_back(v[1]);
-        new_verts.push_back(v[2]);
+        inner2dPoints.push_back(Point(v2d[0], v2d[1]));
+        allPoints.push_back(v);
     }
 
-    for (GLuint i = 0; i < bigContour->size(); i++) {
-        Vector3f v = (*bigContour)[i];
+    for (GLuint i = 0; i < outerContour->size(); i++) {
+        Vector3f v = (*outerContour)[i];
         Vector2f v2d = (m * v).xz();
-        outerPoints.push_back(Point(v2d[0], v2d[1]));
-        new_verts.push_back(v[0]);
-        new_verts.push_back(v[1]);
-        new_verts.push_back(v[2]);
+        outer2dPoints.push_back(Point(v2d[0], v2d[1]));
+        // optimize this
+        allPoints.push_back(v);
     }
-
-    qDebug() << contour->size() << " " << new_verts.size();
 
     //Insert the polygons into a constrained triangulation
     CDT cdt;
-    cdt.insert_constraint(points.begin(), points.end(), true);
-    cdt.insert_constraint(outerPoints.begin(), outerPoints.end(), true);
+    cdt.insert_constraint(inner2dPoints.begin(), inner2dPoints.end(), true);
+    cdt.insert_constraint(outer2dPoints.begin(), outer2dPoints.end(), true);
 
     for(CDT::All_faces_iterator it = cdt.all_faces_begin(); it != cdt.all_faces_end(); ++it){
         it->info().nesting_level = -1;
@@ -311,56 +304,55 @@ std::vector<Vector3f> *Mesh::fillInContour(std::vector<Vector3f> *bigContour, st
             int i1 = 0;
             int i2 = 0;
 
-            for (GLuint i = 0; i < points.size(); i++) {
-                if (points[i] == p0) {
+            for (GLuint i = 0; i < inner2dPoints.size(); i++) {
+                if (inner2dPoints[i] == p0) {
                     found0 = true;
                     i0 = i;
                 }
-                if (points[i] == p1) {
+                if (inner2dPoints[i] == p1) {
                     found1 = true;
                     i1 = i;
                 }
-                if (points[i] == p2) {
+                if (inner2dPoints[i] == p2) {
                     found2 = true;
                     i2 = i;
                 }
             }
-            int offset = points.size();
-            for (GLuint i = 0; i < outerPoints.size(); i++) {
-                if (outerPoints[i] == p0) {
+            int offset = inner2dPoints.size();
+            for (GLuint i = 0; i < outer2dPoints.size(); i++) {
+                if (outer2dPoints[i] == p0) {
                     found0 = true;
                     i0 = i+offset;
                 }
-                if (outerPoints[i] == p1) {
+                if (outer2dPoints[i] == p1) {
                     found1 = true;
                     i1 = i+offset;
                 }
-                if (outerPoints[i] == p2) {
+                if (outer2dPoints[i] == p2) {
                     found2 = true;
                     i2 = i+offset;
                 }
             }
 
             if (!found0) {
-                i0 = addNewVertex(bigContour, contour, new_verts, p0, m);
+                i0 = addNewVertex(outerContour, innerContour, allPoints, p0, m);
             }
             if (!found1) {
-                i1 = addNewVertex(bigContour, contour, new_verts, p1, m);
+                i1 = addNewVertex(outerContour, innerContour, allPoints, p1, m);
             }
             if (!found2) {
-                i2 = addNewVertex(bigContour, contour, new_verts, p2, m);
+                i2 = addNewVertex(outerContour, innerContour, allPoints, p2, m);
             }
 
             // need to push in opposite direction
-            new_faces.push_back(i0);
-            new_faces.push_back(i2);
-            new_faces.push_back(i1);
+            allFaces.push_back(i0);
+            allFaces.push_back(i2);
+            allFaces.push_back(i1);
         }
     }
-    return newContour;
 }
 
-Mesh* Mesh::getExtrudedOutline(QVector3D n) {
+std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
     Vector3f norm = Vector3f(n.x(), n.y(), n.z());
     Vector3f a, b;
     if (n.x() <= n.y() && n.x() <= n.z()) {
@@ -378,53 +370,26 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
     Matrix3f m = minv.inverse();
 
     std::vector<Vector3f>* edges = getEdges(norm);
-    std::vector<Vector3f>* contour = sortIntoContour(edges, m);
+    std::vector<Vector3f>* innerContour = sortIntoContour(edges, m);
+    std::vector<Vector3f>* outerContour = expandContour(innerContour, m);
 
-    std::vector<Vector3f>* bigContour = expandContour(contour, m);
+    std::vector<Vector3f> cutSurfaceVerts;
+    std::vector<GLuint> cutSurfaceFaces;
 
-    std::vector<GLfloat> new_verts;
-    std::vector<GLuint> new_faces;
+    fillInContour(outerContour, innerContour, m, cutSurfaceVerts, cutSurfaceFaces);
 
-    fillInContour(bigContour, contour, m, new_verts, new_faces);
+    std::pair<std::vector<Vector3f>, std::vector<GLuint>> topBlock
+        = generateOuterBlock(cutSurfaceVerts, cutSurfaceFaces, true,
+        innerContour->size(), outerContour->size(), m);
 
-    size_t new_verts_size = new_verts.size();
-    size_t new_faces_size = new_faces.size();
+    std::vector<Vector3f> topBlockVerts = topBlock.first;
+    std::vector<GLuint> topBlockFaces = topBlock.second;
 
-    // fill in flat bottom
-    for(size_t i = 0; i < new_verts_size; i+=3){
-        Vector2f v2d = (m * Vector3f(new_verts[i], new_verts[i+1], new_verts[i+2])).xz();
-        Vector3f projBotCoords = minv * Vector3f(v2d[0], -5, v2d[1]);
-        new_verts.push_back(projBotCoords.x());
-        new_verts.push_back(projBotCoords.y());
-        new_verts.push_back(projBotCoords.z());
-    }
+    // std::vector<Vector3f> botBlockVerts;
+    // std::vector<GLuint> botBlockFaces;
 
-    for(size_t i = 0; i < new_faces_size; i+=3){
-        new_faces.push_back(new_faces[i]+new_verts_size/3);
-        new_faces.push_back(new_faces[i+2]+new_verts_size/3);
-        new_faces.push_back(new_faces[i+1]+new_verts_size/3);
-    }
-
-    size_t contour_size = contour->size();
-
-    // Extrusion code
-    for (GLuint i = contour_size; i < bigContour->size()+contour_size; i++) {
-        if (i - contour_size < bigContour->size()-1) {
-            new_faces.push_back(i);
-            new_faces.push_back(i+1);
-            new_faces.push_back(i+new_verts_size / 3);
-            new_faces.push_back(i+1);
-            new_faces.push_back(i+1+new_verts_size / 3);
-            new_faces.push_back(i+new_verts_size / 3);
-        } else {
-            new_faces.push_back(i);
-            new_faces.push_back(contour_size);
-            new_faces.push_back(i+new_verts_size / 3);
-            new_faces.push_back(contour_size);
-            new_faces.push_back(contour_size+new_verts_size / 3);
-            new_faces.push_back(i+new_verts_size / 3);
-        }
-    }
+    // generateOuterBlock(cutSurfaceVerts, cutSurfaceFaces, botBlockVerts, botBlockFaces, false,
+    //     innerContour->size(), outerContour->size(), m);
 
     // std::ofstream f;
     // f.open ("test.stl");
@@ -434,15 +399,13 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
 
     //     f << "solid test" << std::endl;
 
-    //     for (GLuint i = 0; i < new_faces.size(); i+= 3) {
+    //     for (GLuint i = 0; i < topBlockFaces.size(); i+= 3) {
     //         f << "facet normal 0 0 0" << std::endl;
     //         f << "  outer loop" << std::endl;
     //         for (GLuint j = 0; j < 3; j++) {
-    //             GLuint idx = new_faces[i + j];
-    //             GLfloat x = new_verts[3*idx];
-    //             GLfloat y = new_verts[3*idx+1];
-    //             GLfloat z = new_verts[3*idx+2];
-    //             f << "    vertex " << x << " " << y << " " << z << std::endl;
+    //             GLuint idx = topBlockFaces[i + j];
+    //             Vector3f v = topBlockVerts[idx];
+    //             f << "    vertex " << v.x() << " " << v.y() << " " << v.z() << std::endl;
     //         }
     //         f << "  endloop" << std::endl;
     //         f << "endfacet" << std::endl;
@@ -454,20 +417,18 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
     Eigen::MatrixXd VA, VB, VC;
     Eigen::MatrixXi FA, FB, FC;
 
-    new_verts_size = new_verts.size();
-    VA = Eigen::MatrixXd(new_verts_size / 3, 3);
-    for (size_t i = 0; i < new_verts_size/3; i++) {
-        VA(i, 0) = new_verts[3*i];
-        VA(i, 1) = new_verts[3*i+1];
-        VA(i, 2) = new_verts[3*i+2];
+    VA = Eigen::MatrixXd(topBlockVerts.size(), 3);
+    for (size_t i = 0; i < topBlockVerts.size(); i++) {
+        VA(i, 0) = topBlockVerts[i][0];
+        VA(i, 1) = topBlockVerts[i][1];
+        VA(i, 2) = topBlockVerts[i][2];
     }
 
-    new_faces_size = new_faces.size();
-    FA = Eigen::MatrixXi(new_faces_size / 3, 3);
-    for (size_t i = 0; i < new_faces_size/3; i++) {
-        FA(i, 0) = new_faces[3*i];
-        FA(i, 1) = new_faces[3*i+1];
-        FA(i, 2) = new_faces[3*i+2];
+    FA = Eigen::MatrixXi(topBlockFaces.size() / 3, 3);
+    for (size_t i = 0; i < topBlockFaces.size()/3; i++) {
+        FA(i, 0) = topBlockFaces[3*i];
+        FA(i, 1) = topBlockFaces[3*i+1];
+        FA(i, 2) = topBlockFaces[3*i+2];
     }
     VB = Eigen::MatrixXd(vertices.size() / 3, 3);
     for (size_t i = 0; i < vertices.size()/3; i++) {
@@ -503,34 +464,116 @@ Mesh* Mesh::getExtrudedOutline(QVector3D n) {
         mold_faces.push_back(FC(i,2));
     }
 
+    std::ofstream f;
+    f.open ("test.stl");
+    qDebug() << " opening ";
+    if (f.is_open()) {
+        qDebug() << " writing ";
 
-    // std::ofstream f;
-    // f.open ("test.stl");
-    // qDebug() << " opening ";
-    // if (f.is_open()) {
-    //     qDebug() << " writing ";
+        f << "solid test" << std::endl;
 
-    //     f << "solid test" << std::endl;
+        for (GLuint i = 0; i < mold_faces.size(); i+= 3) {
+            f << "facet normal 0 0 0" << std::endl;
+            f << "  outer loop" << std::endl;
+            for (GLuint j = 0; j < 3; j++) {
+                GLuint idx = mold_faces[i + j];
+                GLfloat x = mold_verts[3*idx];
+                GLfloat y = mold_verts[3*idx+1];
+                GLfloat z = mold_verts[3*idx+2];
+                f << "    vertex " << x << " " << y << " " << z << std::endl;
+            }
+            f << "  endloop" << std::endl;
+            f << "endfacet" << std::endl;
+        }
+    }
 
-    //     for (GLuint i = 0; i < mold_faces.size(); i+= 3) {
-    //         f << "facet normal 0 0 0" << std::endl;
-    //         f << "  outer loop" << std::endl;
-    //         for (GLuint j = 0; j < 3; j++) {
-    //             GLuint idx = mold_faces[i + j];
-    //             GLfloat x = mold_verts[3*idx];
-    //             GLfloat y = mold_verts[3*idx+1];
-    //             GLfloat z = mold_verts[3*idx+2];
-    //             f << "    vertex " << x << " " << y << " " << z << std::endl;
-    //         }
-    //         f << "  endloop" << std::endl;
-    //         f << "endfacet" << std::endl;
-    //     }
-    // }
+    f.close();
 
-    // f.close();
+    Mesh* topMold = new Mesh(mold_verts, mold_faces);
+    Mesh* bottomMold = new Mesh(mold_verts, mold_faces);
 
-    return new Mesh(mold_verts, mold_faces);
-    // return new Mesh(new_verts, new_faces);
+    return std::make_pair(topMold, bottomMold);
+}
+
+std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateOuterBlock(
+    std::vector<Vector3f> &cutSurfaceVerts, std::vector<GLuint> &cutSurfaceFaces,
+    bool isUpper, size_t innerContourSize, size_t outerContourSize, Matrix3f m) {
+
+    // to orient vertices correctly
+    int i1 = isUpper ? 1 : 2;
+    int i2 = isUpper ? 2 : 1;
+
+    size_t cutSurfaceVerts_size = cutSurfaceVerts.size();
+    size_t cutSurfaceFaces_size = cutSurfaceFaces.size();
+
+    std::vector<Vector3f> blockVerts = std::vector<Vector3f>();
+    std::vector<GLuint> blockFaces = std::vector<GLuint>();
+
+    for(size_t i = 0; i < cutSurfaceVerts_size; i++){
+        blockVerts.push_back(cutSurfaceVerts[i]);
+    }
+
+    for(size_t i = 0; i < cutSurfaceFaces_size; i+=3){
+        blockFaces.push_back(cutSurfaceFaces[i]);
+        blockFaces.push_back(cutSurfaceFaces[i+i1]);
+        blockFaces.push_back(cutSurfaceFaces[i+i2]);
+    }
+
+    Matrix3f minv = m.inverse();
+
+    // fill in flat bottom
+    for(size_t i = 0; i < cutSurfaceVerts_size; i++){
+        Vector2f v2d = (m * cutSurfaceVerts[i]).xz();
+        Vector3f flatCoords = minv * Vector3f(v2d[0],
+            (isUpper ? -5 : 5) ,
+            v2d[1]);
+        blockVerts.push_back(flatCoords);
+    }
+
+    for(size_t i = 0; i < cutSurfaceFaces_size; i+=3){
+        blockFaces.push_back(cutSurfaceFaces[i]+cutSurfaceVerts_size);
+        blockFaces.push_back(cutSurfaceFaces[i+i2]+cutSurfaceVerts_size);
+        blockFaces.push_back(cutSurfaceFaces[i+i1]+cutSurfaceVerts_size);
+    }
+
+    // Extrusion code
+    for (GLuint i = innerContourSize; i < outerContourSize + innerContourSize; i++) {
+        if (i - innerContourSize < outerContourSize - 1) {
+            if (isUpper) {
+                blockFaces.push_back(i);
+                blockFaces.push_back(i+1);
+                blockFaces.push_back(i+cutSurfaceVerts_size);
+                blockFaces.push_back(i+1);
+                blockFaces.push_back(i+1+cutSurfaceVerts_size);
+                blockFaces.push_back(i+cutSurfaceVerts_size);
+            } else {
+                blockFaces.push_back(i);
+                blockFaces.push_back(i+cutSurfaceVerts_size);
+                blockFaces.push_back(i+1);
+                blockFaces.push_back(i+1);
+                blockFaces.push_back(i+cutSurfaceVerts_size);
+                blockFaces.push_back(i+1+cutSurfaceVerts_size);
+            }
+        } else {
+            if (isUpper) {
+                blockFaces.push_back(i);
+                blockFaces.push_back(innerContourSize);
+                blockFaces.push_back(i+cutSurfaceVerts_size);
+                blockFaces.push_back(innerContourSize);
+                blockFaces.push_back(innerContourSize+cutSurfaceVerts_size);
+                blockFaces.push_back(i+cutSurfaceVerts_size);
+            } else {
+                blockFaces.push_back(i);
+                blockFaces.push_back(i+cutSurfaceVerts_size);
+                blockFaces.push_back(innerContourSize);
+                blockFaces.push_back(innerContourSize);
+                blockFaces.push_back(i+cutSurfaceVerts_size);
+                blockFaces.push_back(innerContourSize+cutSurfaceVerts_size);
+            }
+        }
+    }
+
+    return std::make_pair(blockVerts, blockFaces);
 }
 
 float get_line_intersection(Vector2f p0, Vector2f p1, Vector2f p2, Vector2f p3) {
@@ -635,7 +678,7 @@ std::vector<Vector3f>* Mesh::sortIntoContour(std::vector<Vector3f>* edges, Matri
     Vector3f currentPt = rightmostPt;
     GLuint currentIdx = rightmostIdx;
 
-    std::vector<GLuint> contourIdxs = std::vector<GLuint>();
+    std::vector<GLuint> innerContourIdxs = std::vector<GLuint>();
     std::vector<GLuint> uniqueIdxs = std::vector<GLuint>();
     do {
         GLuint neighborIdx = currentIdx + ((currentIdx % 2 == 0) ? 1 : -1);
@@ -646,9 +689,9 @@ std::vector<Vector3f>* Mesh::sortIntoContour(std::vector<Vector3f>* edges, Matri
 
         // find other point closest to that edge
         for (GLuint i = 0; i < edges->size(); i++) {
-            // search only among points not already in the contour
+            // search only among points not already in the innerContour
             if (i != neighborIdx &&
-                std::find(contourIdxs.begin(), contourIdxs.end(), i) == std::end(contourIdxs)) {
+                std::find(innerContourIdxs.begin(), innerContourIdxs.end(), i) == std::end(innerContourIdxs)) {
                 float distToNeighbor = (neighbor - (*edges)[i]).abs();
                 if (distToNeighbor < runningMin) {
                     closestToNeighbor = i;
@@ -659,13 +702,13 @@ std::vector<Vector3f>* Mesh::sortIntoContour(std::vector<Vector3f>* edges, Matri
 
         if (runningMin > 1e10) {
             qDebug() << "ERROR";
-            // all points have already been added to the contour
+            // all points have already been added to the innerContour
             break;
         }
 
         // add both to set of points to not take again
-        contourIdxs.push_back(neighborIdx);
-        contourIdxs.push_back(closestToNeighbor);
+        innerContourIdxs.push_back(neighborIdx);
+        innerContourIdxs.push_back(closestToNeighbor);
 
         // but if both points are approx the same, just add one of them to uniqueIdxs
         uniqueIdxs.push_back(neighborIdx);
@@ -678,10 +721,10 @@ std::vector<Vector3f>* Mesh::sortIntoContour(std::vector<Vector3f>* edges, Matri
 
     } while (currentPt != rightmostPt);
 
-    std::vector<Vector3f> *contour = new std::vector<Vector3f>();
+    std::vector<Vector3f> *innerContour = new std::vector<Vector3f>();
     for (GLuint i = 0; i < uniqueIdxs.size(); i++) {
-        contour->push_back((*edges)[uniqueIdxs[i]]);
+        innerContour->push_back((*edges)[uniqueIdxs[i]]);
     }
 
-    return contour;
+    return innerContour;
 }
