@@ -50,6 +50,7 @@ private:
 
     QMatrix4x4 transform_matrix() const;
     QMatrix4x4 view_matrix() const;
+    QMatrix4x4 mold_transform_matrix() const;
     QMatrix4x4 bbox_transform_matrix() const;
 
     QGLShaderProgram mesh_shader;
@@ -57,8 +58,7 @@ private:
     QGLShaderProgram quad_shader;
 
     GLMesh* glmesh;
-    GLMesh* glTopMold;
-    GLMesh* glBottomMold;
+    GLMesh* glMold;
     Mesh* mesh;
     Backdrop* backdrop;
 

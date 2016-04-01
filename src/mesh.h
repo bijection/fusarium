@@ -24,7 +24,7 @@ public:
     void setTransform(float rotateX, float rotateY, float rotateZ);
     float calculateProjectedArea(QVector3D norm);
     bool checkForOverhangs(QVector3D norm, QVector3D &start, QVector3D &end) const;
-    std::pair<Mesh*, Mesh*> generateMolds(QVector3D norm);
+    Mesh* generateMold(QVector3D norm, float meshScale);
     BoundingBox bbox;
 
 private:

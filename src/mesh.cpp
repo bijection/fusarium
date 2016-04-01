@@ -369,7 +369,7 @@ void populateEigen(std::vector<Vector3f>& verts, std::vector<GLuint>& faces,
     }
 }
 
-std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
+Mesh* Mesh::generateMold(QVector3D n, float meshScale) {
     Vector3f norm = Vector3f(n.x(), n.y(), n.z());
     Vector3f a, b;
     if (n.x() <= n.y() && n.x() <= n.z()) {
@@ -388,8 +388,8 @@ std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
 
     std::vector<Vector3f>* edges = getEdges(norm);
     std::vector<Vector3f>* innerContour = sortIntoContour(edges, m);
-    std::vector<Vector3f>* middleContour = expandContour(innerContour, m, 0.5);
-    std::vector<Vector3f>* outerContour = expandContour(innerContour, m, 1);
+    std::vector<Vector3f>* middleContour = expandContour(innerContour, m, 0.5/meshScale);
+    std::vector<Vector3f>* outerContour = expandContour(innerContour, m, 1/meshScale);
 
     std::vector<Vector3f> cutSurfaceVerts;
     std::vector<GLuint> cutSurfaceFaces;
@@ -473,14 +473,12 @@ std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
 
     for (size_t i = 0; i < topMinus2VM.size()/3; i++) {
         Vector3f v = m * Vector3f(topMinus2VM(i, 0), topMinus2VM(i, 1), topMinus2VM(i, 2));
-        Vector3f w = minv * Vector3f(v[0], v[1]-0.05, v[2]);
+        Vector3f w = minv * Vector3f(v[0], v[1]-0.05/meshScale, v[2]);
         topMinus2VM(i,0) = w[0];
         topMinus2VM(i,1) = w[1];
         topMinus2VM(i,2) = w[2];
     }
 
-
-    qDebug() << "third one";
     igl::copyleft::boolean::mesh_boolean(topMinus1VM, topMinus1FM, topMinus2VM, topMinus2FM,
         igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS, topFinalVM, topFinalFM);
 
@@ -488,9 +486,9 @@ std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
     std::vector<GLuint> mold_faces = std::vector<GLuint>();
     for (long i = 0; i < topFinalVM.rows(); ++i)
     {
-        mold_verts.push_back(topFinalVM(i,0));
-        mold_verts.push_back(topFinalVM(i,1));
-        mold_verts.push_back(topFinalVM(i,2));
+        mold_verts.push_back(topFinalVM(i,0) * meshScale);
+        mold_verts.push_back(topFinalVM(i,1) * meshScale);
+        mold_verts.push_back(topFinalVM(i,2) * meshScale);
     }
 
     for (long i = 0; i < topFinalFM.rows(); ++i)
@@ -500,35 +498,32 @@ std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
         mold_faces.push_back(topFinalFM(i,2));
     }
 
-    std::ofstream f;
-    f.open ("test.stl");
-    qDebug() << " opening ";
-    if (f.is_open()) {
-        qDebug() << " writing ";
+    // std::ofstream f;
+    // f.open ("test.stl");
+    // qDebug() << " opening ";
+    // if (f.is_open()) {
+    //     qDebug() << " writing ";
 
-        f << "solid test" << std::endl;
+    //     f << "solid test" << std::endl;
 
-        for (GLuint i = 0; i < mold_faces.size(); i+= 3) {
-            f << "facet normal 0 0 0" << std::endl;
-            f << "  outer loop" << std::endl;
-            for (GLuint j = 0; j < 3; j++) {
-                GLuint idx = mold_faces[i + j];
-                GLfloat x = mold_verts[3*idx];
-                GLfloat y = mold_verts[3*idx+1];
-                GLfloat z = mold_verts[3*idx+2];
-                f << "    vertex " << x << " " << y << " " << z << std::endl;
-            }
-            f << "  endloop" << std::endl;
-            f << "endfacet" << std::endl;
-        }
-    }
+    //     for (GLuint i = 0; i < mold_faces.size(); i+= 3) {
+    //         f << "facet normal 0 0 0" << std::endl;
+    //         f << "  outer loop" << std::endl;
+    //         for (GLuint j = 0; j < 3; j++) {
+    //             GLuint idx = mold_faces[i + j];
+    //             GLfloat x = mold_verts[3*idx];
+    //             GLfloat y = mold_verts[3*idx+1];
+    //             GLfloat z = mold_verts[3*idx+2];
+    //             f << "    vertex " << x << " " << y << " " << z << std::endl;
+    //         }
+    //         f << "  endloop" << std::endl;
+    //         f << "endfacet" << std::endl;
+    //     }
+    // }
 
-    f.close();
+    // f.close();
 
-    Mesh* topMold = new Mesh(mold_verts, mold_faces);
-    Mesh* bottomMold = new Mesh(mold_verts, mold_faces);
-
-    return std::make_pair(topMold, bottomMold);
+    return new Mesh(mold_verts, mold_faces);
 }
 
 std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateBlock(

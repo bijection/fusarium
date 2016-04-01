@@ -123,9 +123,7 @@ void Canvas::generateMold() {
     m.rotate(meshRotateY, QVector3D(0, 1, 0));
     m.rotate(meshRotateZ, QVector3D(0, 0, 1));
 
-    std::pair<Mesh*, Mesh*> molds = mesh->generateMolds(QVector3D(0,0,1) * m);
-    glTopMold = new GLMesh(molds.first);
-    glBottomMold = new GLMesh(molds.second);
+    glMold = new GLMesh(mesh->generateMold(QVector3D(0,0,1) * m, meshScale));
     glmoldGenerated = true;
     update();
 }
@@ -178,7 +176,7 @@ void Canvas::draw_mesh()
                 1, GL_FALSE, view_matrix().data());
 
     // Compensate for z-flattening when zooming
-    glUniform1f(mesh_shader.uniformLocation("zoom"), 1/(zoom * meshScale));
+    glUniform1f(mesh_shader.uniformLocation("zoom"), 1/(zoom));
 
     // Find and enable the attribute location for vertex position
     const GLuint vp = mesh_shader.attributeLocation("vertex_position");
@@ -186,9 +184,20 @@ void Canvas::draw_mesh()
 
     // Then draw the mesh with that vertex position
     glmesh->draw(vp);
+    mesh_shader.release();
+
+    mesh_shader.bind();
+    glUniformMatrix4fv(
+                mesh_shader.uniformLocation("transform_matrix"),
+                1, GL_FALSE, mold_transform_matrix().data());
+    glUniformMatrix4fv(
+                mesh_shader.uniformLocation("view_matrix"),
+                1, GL_FALSE, view_matrix().data());
+    glUniform1f(mesh_shader.uniformLocation("zoom"), 1/(zoom));
+    glEnableVertexAttribArray(vp);
+
     if (glmoldGenerated) {
-        glTopMold->draw(vp);
-        glBottomMold->draw(vp);
+        glMold->draw(vp);
     }
     mesh_shader.release();
 
@@ -224,6 +233,7 @@ QMatrix4x4 Canvas::transform_matrix() const
     m.rotate(yaw,  QVector3D(0, 0, 1));
     m.scale(scale);
     m.translate(-center);
+    m.scale(meshScale);
     m.rotate(meshRotateX, QVector3D(1, 0, 0));
     m.rotate(meshRotateY,  QVector3D(0, 1, 0));
     m.rotate(meshRotateZ,  QVector3D(0, 0, 1));
@@ -231,6 +241,18 @@ QMatrix4x4 Canvas::transform_matrix() const
 }
 
 QMatrix4x4 Canvas::bbox_transform_matrix() const
+{
+    QMatrix4x4 m;
+    m.rotate(tilt, QVector3D(1, 0, 0));
+    m.rotate(yaw,  QVector3D(0, 0, 1));
+    m.scale(scale);
+    m.translate(-center);
+    m.scale(meshScale);
+    return m;
+}
+
+
+QMatrix4x4 Canvas::mold_transform_matrix() const
 {
     QMatrix4x4 m;
     m.rotate(tilt, QVector3D(1, 0, 0));
@@ -251,7 +273,7 @@ QMatrix4x4 Canvas::view_matrix() const
     {
         m.scale(-1, width() / float(height()), 0.5);
     }
-    m.scale(zoom * meshScale, zoom * meshScale, 1);
+    m.scale(zoom, zoom, 1);
     return m;
 }
 
