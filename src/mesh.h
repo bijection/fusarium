@@ -24,7 +24,8 @@ public:
     void setTransform(float rotateX, float rotateY, float rotateZ);
     float calculateProjectedArea(QVector3D norm);
     bool checkForOverhangs(QVector3D norm, QVector3D &start, QVector3D &end) const;
-    Mesh* generateMold(QVector3D norm, float meshScale);
+    Mesh* generateMold(QVector3D norm, float meshScale, float zThickness,
+        float moldWidth, int connectors, bool isTop);
     BoundingBox bbox;
 
 private:
@@ -36,7 +37,7 @@ private:
         std::vector<Vector3f> &new_verts, std::vector<GLuint> &new_faces);
     std::pair<std::vector<Vector3f>, std::vector<GLuint>> generateBlock(
         std::vector<Vector3f> &cutSurfaceVerts, std::vector<GLuint> &cutSurfaceFaces,
-        size_t innerContourSize, size_t outerContourSize, Matrix3f m, bool isUpper);
+        size_t innerContourSize, size_t outerContourSize, Matrix3f m, bool isTop);
 
     QMatrix4x4 transform;
 

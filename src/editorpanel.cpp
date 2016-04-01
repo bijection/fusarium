@@ -13,12 +13,13 @@ EditorPanel::EditorPanel(QWidget *parent)
     grid->addRow(createViewGroup());
     setLayout(grid);
 
-    // QObject::connect(editorPanel->zRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateZ(int)));
-    // QObject::connect(canvas, &Canvas::updatedBbox, editorPanel, &EditorPanel::updateBboxLabels);
-
-    QObject::connect(unitCombo,
-        static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-        this, &EditorPanel::updateBboxUnits);
+    QObject::connect(xRotateSlider, &QSlider::valueChanged, this, &EditorPanel::updateXRotate);
+    QObject::connect(yRotateSlider, &QSlider::valueChanged, this, &EditorPanel::updateYRotate);
+    QObject::connect(zRotateSlider, &QSlider::valueChanged, this, &EditorPanel::updateZRotate);
+    QObject::connect(scaleSlider, &QSlider::valueChanged, this, &EditorPanel::updateMeshScale);
+    QObject::connect(zThicknessSlider, &QSlider::valueChanged, this, &EditorPanel::updateZThickness);
+    QObject::connect(moldWidthSlider, &QSlider::valueChanged, this, &EditorPanel::updateMoldWidth);
+    QObject::connect(connectorsSlider, &QSlider::valueChanged, this, &EditorPanel::updateConnectors);
 }
 
 QGroupBox *EditorPanel::createOrientationGroup()
@@ -43,9 +44,28 @@ QGroupBox *EditorPanel::createOrientationGroup()
 
     optimizeBtn = new QPushButton(tr("Optimize"));
 
-    layout->addRow(new QLabel(tr("X rotation")), xRotateSlider);
-    layout->addRow(new QLabel(tr("Y rotation")), yRotateSlider);
-    layout->addRow(new QLabel(tr("Z rotation")), zRotateSlider);
+    xRotateLabel = new QLabel(tr("0°"));
+    xRotateLabel->setMinimumSize(35,1);
+    yRotateLabel = new QLabel(tr("0°"));
+    yRotateLabel->setMinimumSize(35,1);
+    zRotateLabel = new QLabel(tr("0°"));
+    zRotateLabel->setMinimumSize(35,1);
+
+    QBoxLayout *xRotate = new QBoxLayout(QBoxLayout::RightToLeft);
+    xRotate->addWidget(xRotateLabel);
+    xRotate->addWidget(xRotateSlider);
+
+    QBoxLayout *yRotate = new QBoxLayout(QBoxLayout::RightToLeft);
+    yRotate->addWidget(yRotateLabel);
+    yRotate->addWidget(yRotateSlider);
+
+    QBoxLayout *zRotate = new QBoxLayout(QBoxLayout::RightToLeft);
+    zRotate->addWidget(zRotateLabel);
+    zRotate->addWidget(zRotateSlider);
+
+    layout->addRow(new QLabel(tr("X rotation")), xRotate);
+    layout->addRow(new QLabel(tr("Y rotation")), yRotate);
+    layout->addRow(new QLabel(tr("Z rotation")), zRotate);
     layout->addRow(optimizeBtn);
 
     groupBox->setLayout(layout);
@@ -60,23 +80,25 @@ QGroupBox *EditorPanel::createScaleGroup()
     layout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
 	scaleSlider = new QSlider(Qt::Horizontal);
-    scaleSlider->setRange(-50, 50);
+    scaleSlider->setRange(-90, 90);
     scaleSlider->setTickPosition(QSlider::TicksBelow);
     scaleSlider->setTickInterval(20);
+
+    scaleLabel = new QLabel(tr("1x"));
+    scaleLabel->setMinimumSize(35,1);
+
+    QBoxLayout *scaleRow = new QBoxLayout(QBoxLayout::RightToLeft);
+    scaleRow->addWidget(scaleLabel);
+    scaleRow->addWidget(scaleSlider);
 
     width = new QLabel();
     height = new QLabel();
     depth = new QLabel();
 
-    unitCombo = new QComboBox();
-    unitCombo->addItem(tr("inches"));
-    unitCombo->addItem(tr("mm"));
-
-    layout->addRow(new QLabel(tr("Units")), unitCombo);
     layout->addRow(new QLabel(tr("Width")), width);
     layout->addRow(new QLabel(tr("Height")), height);
     layout->addRow(new QLabel(tr("Depth")), depth);
-    layout->addRow(new QLabel(tr("Scale by")), scaleSlider);
+    layout->addRow(new QLabel(tr("Scale by")), scaleRow);
 
     groupBox->setLayout(layout);
     return groupBox;
@@ -88,14 +110,58 @@ QGroupBox *EditorPanel::createParametersGroup()
     QFormLayout *layout = new QFormLayout;
     layout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
-	QSlider* zThickness = new QSlider(Qt::Horizontal);
-	QSlider* moldWidth = new QSlider(Qt::Horizontal);
-	QSlider* connectors = new QSlider(Qt::Horizontal);
-	generateMoldBtn = new QPushButton(tr("Generate Mold"));
+    moldCombo = new QComboBox();
+    moldCombo->addItem(tr("Top"));
+    moldCombo->addItem(tr("Bottom"));
 
-    layout->addRow(new QLabel(tr("Z Thickness")), zThickness);
-    layout->addRow(new QLabel(tr("Mold Width")), moldWidth);
-    layout->addRow(new QLabel(tr("Connectors")), connectors);
+    zThickness = 2;
+	zThicknessSlider = new QSlider(Qt::Horizontal);
+    zThicknessSlider->setRange(10, 30);
+    zThicknessSlider->setValue(zThickness * 10);
+    zThicknessSlider->setTickPosition(QSlider::TicksBelow);
+    zThicknessSlider->setTickInterval(5);
+
+    zThicknessLabel = new QLabel(tr("2.0") + unit);
+    zThicknessLabel->setMinimumSize(35,1);
+
+    QBoxLayout *zThicknessRow = new QBoxLayout(QBoxLayout::RightToLeft);
+    zThicknessRow->addWidget(zThicknessLabel);
+    zThicknessRow->addWidget(zThicknessSlider);
+
+    moldWidth = 6;
+    moldWidthSlider = new QSlider(Qt::Horizontal);
+    moldWidthSlider->setRange(60, 100);
+    moldWidthSlider->setValue(moldWidth * 10);
+    moldWidthSlider->setTickPosition(QSlider::TicksBelow);
+    moldWidthSlider->setTickInterval(5);
+
+    moldWidthLabel = new QLabel(tr("6.0") + unit);
+    moldWidthLabel->setMinimumSize(35,1);
+
+    QBoxLayout *moldWidthRow = new QBoxLayout(QBoxLayout::RightToLeft);
+    moldWidthRow->addWidget(moldWidthLabel);
+    moldWidthRow->addWidget(moldWidthSlider);
+
+    connectors = 5;
+    connectorsSlider = new QSlider(Qt::Horizontal);
+    connectorsSlider->setRange(3, 10);
+    connectorsSlider->setValue(connectors);
+    connectorsSlider->setTickPosition(QSlider::TicksBelow);
+    connectorsSlider->setTickInterval(1);
+
+    connectorsLabel = new QLabel(tr("5"));
+    connectorsLabel->setMinimumSize(35,1);
+
+    QBoxLayout *connectorsRow = new QBoxLayout(QBoxLayout::RightToLeft);
+    connectorsRow->addWidget(connectorsLabel);
+    connectorsRow->addWidget(connectorsSlider);
+
+    generateMoldBtn = new QPushButton(tr("Generate Mold"));
+
+    layout->addRow(new QLabel(tr("Mold")), moldCombo);
+    layout->addRow(new QLabel(tr("Z thickness")), zThicknessRow);
+    layout->addRow(new QLabel(tr("Mold width")), moldWidthRow);
+    layout->addRow(new QLabel(tr("Connectors")), connectorsRow);
     layout->addRow(generateMoldBtn);
 
     groupBox->setLayout(layout);
@@ -108,16 +174,15 @@ QGroupBox *EditorPanel::createViewGroup()
     QFormLayout *layout = new QFormLayout;
     layout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 
-    QCheckBox* modelView = new QCheckBox(tr("Model"));
-    QCheckBox* axesView = new QCheckBox(tr("Axes"));
-    QCheckBox* bboxView = new QCheckBox(tr("Bounding Box"));
-    QCheckBox* moldView = new QCheckBox(tr("Mold"));
+    modelView = new QCheckBox(tr("Model"));
+    bboxView = new QCheckBox(tr("Bounding Box"));
+    moldView = new QCheckBox(tr("Mold"));
 
     modelView->setChecked(true);
     bboxView->setChecked(true);
+    moldView->setChecked(true);
 
     layout->addRow(modelView);
-    layout->addRow(axesView);
     layout->addRow(bboxView);
     layout->addRow(moldView);
     groupBox->setLayout(layout);
@@ -129,8 +194,8 @@ void EditorPanel::updateBboxLabels(float xNew, float yNew, float zNew) {
     y = yNew;
     z = zNew;
     width->setText(QString::number(x, 'f', 2) + unit);
-    height->setText(QString::number(y, 'f', 2) + unit);
-    depth->setText(QString::number(z, 'f', 2) + unit);
+    depth->setText(QString::number(y, 'f', 2) + unit);
+    height->setText(QString::number(z, 'f', 2) + unit);
 }
 
 void EditorPanel::updateOrientation(float xRotate, float yRotate, float zRotate) {
@@ -138,19 +203,64 @@ void EditorPanel::updateOrientation(float xRotate, float yRotate, float zRotate)
     int xRotateInt = (xRotate) >= 0 ? (float)(xRotate+0.5) : (float)(xRotate-0.5);
     xRotateInt = ((xRotateInt + 180) % 360) - 180;
     xRotateSlider->setValue(xRotateInt);
+    updateXRotate(xRotateInt);
+
     int yRotateInt = (yRotate) >= 0 ? (float)(yRotate+0.5) : (float)(yRotate-0.5);
     yRotateInt = ((yRotateInt + 180) % 360) - 180;
     yRotateSlider->setValue(yRotateInt);
+    updateYRotate(yRotateInt);
+
     int zRotateInt = (zRotate) >= 0 ? (float)(zRotate+0.5) : (float)(zRotate-0.5);
     zRotateInt = ((zRotateInt + 180) % 360) - 180;
     zRotateSlider->setValue(zRotateInt);
+    updateZRotate(zRotateInt);
+}
+
+
+void EditorPanel::updateXRotate(int deg) {
+    xRotateLabel->setText(QString::number(deg)+"°");
+}
+
+void EditorPanel::updateYRotate(int deg) {
+    yRotateLabel->setText(QString::number(deg)+"°");
+}
+
+void EditorPanel::updateZRotate(int deg) {
+    zRotateLabel->setText(QString::number(deg)+"°");
+}
+
+void EditorPanel::updateMeshScale(int factor) {
+    float meshScale;
+    if (factor > 0) {
+        meshScale = factor/10.0f + 1.0f;
+    } else if (factor < 0) {
+        meshScale = 1 / (-factor/10.0f + 1.0f);
+    } else {
+        meshScale = 1;
+    }
+    scaleLabel->setText(QString::number(meshScale, 'f' ,2) + "x");
+}
+
+void EditorPanel::updateZThickness(int thickness) {
+    zThickness = thickness / 10.0;
+    zThicknessLabel->setText(QString::number(zThickness) + unit);
+}
+
+void EditorPanel::updateMoldWidth(int width) {
+    moldWidth = width / 10.0;
+    moldWidthLabel->setText(QString::number(moldWidth) + unit);
+}
+
+void EditorPanel::updateConnectors(int num) {
+    connectors = num;
+    connectorsLabel->setText(QString::number(connectors));
 }
 
 void EditorPanel::updateBboxUnits(int index) {
-    unit = (index == 0) ? tr(" inches") : tr(" mm");
+    unit = (index == 0) ? tr(" mm") : tr(" inches");
     width->setText(QString::number(x, 'f', 2) + unit);
-    height->setText(QString::number(y, 'f', 2) + unit);
-    depth->setText(QString::number(z, 'f', 2) + unit);
+    depth->setText(QString::number(y, 'f', 2) + unit);
+    height->setText(QString::number(z, 'f', 2) + unit);
 }
 
 void EditorPanel::resetControls() {

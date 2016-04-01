@@ -7,7 +7,6 @@
 #include "window.h"
 #include "canvas.h"
 #include "loader.h"
-#include "editorpanel.h"
 
 Window::Window(QWidget *parent) :
     QMainWindow(parent),
@@ -22,11 +21,6 @@ Window::Window(QWidget *parent) :
     QFile styleFile(":/qt/style.qss");
     styleFile.open( QFile::ReadOnly );
     setStyleSheet(styleFile.readAll());
-
-    QGLFormat format;
-    format.setVersion(2, 1);
-    format.setSampleBuffers(true);
-    canvas = new Canvas(format, this);
 
     QWidget* centralWidget = new QWidget(this);
     QGridLayout* layout = new QGridLayout;
@@ -53,13 +47,19 @@ Window::Window(QWidget *parent) :
     auto help_menu = menuBar()->addMenu("Help");
     help_menu->addAction(about_action);
 
-    resize(800, 400);
+    resize(900, 550);
 }
 
 void Window::initWidgets(QGridLayout* layout) {
 
     editorPanel = new EditorPanel(this);
-    editorPanel->setMinimumWidth(250);
+    editorPanel->setMinimumWidth(300);
+
+    QGLFormat format;
+    format.setVersion(2, 1);
+    format.setSampleBuffers(true);
+    canvas = new Canvas(format, editorPanel, this);
+
     layout->addWidget(editorPanel, 0, 0);
     layout->addWidget(canvas, 0, 1);
     layout->setColumnStretch(0, 1);
@@ -68,7 +68,13 @@ void Window::initWidgets(QGridLayout* layout) {
     QObject::connect(editorPanel->xRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateX(int)));
     QObject::connect(editorPanel->yRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateY(int)));
     QObject::connect(editorPanel->zRotateSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshRotateZ(int)));
+
     QObject::connect(editorPanel->scaleSlider, SIGNAL(valueChanged(int)), canvas, SLOT(setMeshScale(int)));
+
+    QObject::connect(editorPanel->modelView, SIGNAL(stateChanged(int)), canvas, SLOT(updateModelView(int)));
+    QObject::connect(editorPanel->bboxView, SIGNAL(stateChanged(int)), canvas, SLOT(updateBboxView(int)));
+    QObject::connect(editorPanel->moldView, SIGNAL(stateChanged(int)), canvas, SLOT(updateMoldView(int)));
+
     QObject::connect(canvas, &Canvas::updatedBbox, editorPanel, &EditorPanel::updateBboxLabels);
     QObject::connect(editorPanel->optimizeBtn, SIGNAL(clicked()), canvas, SLOT(optimizeMesh()));
     QObject::connect(editorPanel->generateMoldBtn, SIGNAL(clicked()), canvas, SLOT(generateMold()));

@@ -13,11 +13,11 @@
 #include "glmesh.h"
 #include "mesh.h"
 
-Canvas::Canvas(const QGLFormat& format, QWidget *parent)
+Canvas::Canvas(const QGLFormat& format, EditorPanel* editorPanel, QWidget *parent)
     : QGLWidget(format, parent), mesh(NULL),
       scale(1), zoom(1), tilt(90), yaw(0), status(" ")
 {
-    // Nothing to do here
+    panel = editorPanel;
 }
 
 Canvas::~Canvas()
@@ -117,13 +117,35 @@ void Canvas::updateMeshBbox() {
         (bbox.zmax - bbox.zmin) * meshScale);
 }
 
+void Canvas::updateModelView(int state) {
+    modelView = (state > 0);
+    update();
+}
+
+
+void Canvas::updateBboxView(int state) {
+    bboxView = (state > 0);
+    update();
+}
+
+
+void Canvas::updateMoldView(int state) {
+    moldView = (state > 0);
+    update();
+}
+
 void Canvas::generateMold() {
+    glmoldGenerated = false;
+    update();
+
     QMatrix4x4 m;
     m.rotate(meshRotateX, QVector3D(1, 0, 0));
     m.rotate(meshRotateY, QVector3D(0, 1, 0));
     m.rotate(meshRotateZ, QVector3D(0, 0, 1));
 
-    glMold = new GLMesh(mesh->generateMold(QVector3D(0,0,1) * m, meshScale));
+    glMold = new GLMesh(mesh->generateMold(QVector3D(0,0,1) * m, meshScale,
+        panel->zThickness, panel->moldWidth, panel->connectors,
+        (panel->moldCombo->currentIndex() == 0)));
     glmoldGenerated = true;
     update();
 }
@@ -165,65 +187,71 @@ void Canvas::paintEvent(QPaintEvent *event)
 
 void Canvas::draw_mesh()
 {
-    mesh_shader.bind();
+    if (modelView) {
+        mesh_shader.bind();
 
-    // Load the transform and view matrices into the shader
-    glUniformMatrix4fv(
-                mesh_shader.uniformLocation("transform_matrix"),
-                1, GL_FALSE, transform_matrix().data());
-    glUniformMatrix4fv(
-                mesh_shader.uniformLocation("view_matrix"),
-                1, GL_FALSE, view_matrix().data());
+        // Load the transform and view matrices into the shader
+        glUniformMatrix4fv(
+                    mesh_shader.uniformLocation("transform_matrix"),
+                    1, GL_FALSE, transform_matrix().data());
+        glUniformMatrix4fv(
+                    mesh_shader.uniformLocation("view_matrix"),
+                    1, GL_FALSE, view_matrix().data());
 
-    // Compensate for z-flattening when zooming
-    glUniform1f(mesh_shader.uniformLocation("zoom"), 1/(zoom));
+        // Compensate for z-flattening when zooming
+        glUniform1f(mesh_shader.uniformLocation("zoom"), 1/(zoom));
 
-    // Find and enable the attribute location for vertex position
-    const GLuint vp = mesh_shader.attributeLocation("vertex_position");
-    glEnableVertexAttribArray(vp);
+        // Find and enable the attribute location for vertex position
+        const GLuint vp = mesh_shader.attributeLocation("vertex_position");
+        glEnableVertexAttribArray(vp);
 
-    // Then draw the mesh with that vertex position
-    glmesh->draw(vp);
-    mesh_shader.release();
+        // Then draw the mesh with that vertex position
+        glmesh->draw(vp);
 
-    mesh_shader.bind();
-    glUniformMatrix4fv(
-                mesh_shader.uniformLocation("transform_matrix"),
-                1, GL_FALSE, mold_transform_matrix().data());
-    glUniformMatrix4fv(
-                mesh_shader.uniformLocation("view_matrix"),
-                1, GL_FALSE, view_matrix().data());
-    glUniform1f(mesh_shader.uniformLocation("zoom"), 1/(zoom));
-    glEnableVertexAttribArray(vp);
-
-    if (glmoldGenerated) {
-        glMold->draw(vp);
+        glDisableVertexAttribArray(vp);
+        mesh_shader.release();
     }
-    mesh_shader.release();
 
-    line_shader.bind();
-    glUniformMatrix4fv(
-                line_shader.uniformLocation("transform_matrix"),
-                1, GL_FALSE, bbox_transform_matrix().data());
-    glUniformMatrix4fv(
-                line_shader.uniformLocation("view_matrix"),
-                1, GL_FALSE, view_matrix().data());
-    glmesh->drawBoundingBox();
+    if (moldView && glmoldGenerated) {
+        mesh_shader.bind();
+        glUniformMatrix4fv(
+                    mesh_shader.uniformLocation("transform_matrix"),
+                    1, GL_FALSE, mold_transform_matrix().data());
+        glUniformMatrix4fv(
+                    mesh_shader.uniformLocation("view_matrix"),
+                    1, GL_FALSE, view_matrix().data());
+        glUniform1f(mesh_shader.uniformLocation("zoom"), 1/(zoom));
+        const GLuint vp = mesh_shader.attributeLocation("vertex_position");
+        glEnableVertexAttribArray(vp);
+        glMold->draw(vp);
 
-    line_shader.release();
-    line_shader.bind();
-    glUniformMatrix4fv(
-                line_shader.uniformLocation("transform_matrix"),
-                1, GL_FALSE, transform_matrix().data());
-    glUniformMatrix4fv(
-                line_shader.uniformLocation("view_matrix"),
-                1, GL_FALSE, view_matrix().data());
+        glDisableVertexAttribArray(vp);
+        mesh_shader.release();
+    }
 
-    glmesh->drawOverhangLine();
+    if (bboxView) {
+        line_shader.bind();
+        glUniformMatrix4fv(
+                    line_shader.uniformLocation("transform_matrix"),
+                    1, GL_FALSE, bbox_transform_matrix().data());
+        glUniformMatrix4fv(
+                    line_shader.uniformLocation("view_matrix"),
+                    1, GL_FALSE, view_matrix().data());
+        glmesh->drawBoundingBox();
 
-    // Clean up state machine
-    glDisableVertexAttribArray(vp);
-    line_shader.release();
+        line_shader.release();
+        line_shader.bind();
+        glUniformMatrix4fv(
+                    line_shader.uniformLocation("transform_matrix"),
+                    1, GL_FALSE, transform_matrix().data());
+        glUniformMatrix4fv(
+                    line_shader.uniformLocation("view_matrix"),
+                    1, GL_FALSE, view_matrix().data());
+
+        glmesh->drawOverhangLine();
+
+        line_shader.release();
+    }
 }
 
 QMatrix4x4 Canvas::transform_matrix() const
@@ -259,6 +287,9 @@ QMatrix4x4 Canvas::mold_transform_matrix() const
     m.rotate(yaw,  QVector3D(0, 0, 1));
     m.scale(scale);
     m.translate(-center);
+    m.rotate(meshRotateX, QVector3D(1, 0, 0));
+    m.rotate(meshRotateY,  QVector3D(0, 1, 0));
+    m.rotate(meshRotateZ,  QVector3D(0, 0, 1));
     return m;
 }
 

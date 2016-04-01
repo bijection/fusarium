@@ -7,6 +7,8 @@
 #include <QtOpenGL/QGLShaderProgram>
 #include <QMatrix4x4>
 
+#include "editorpanel.h"
+
 class GLMesh;
 class Mesh;
 class Backdrop;
@@ -16,7 +18,7 @@ class Canvas : public QGLWidget, protected QGLFunctions
     Q_OBJECT
 
 public:
-    Canvas(const QGLFormat& format, QWidget* parent=0);
+    Canvas(const QGLFormat& format, EditorPanel* editorPanel, QWidget* parent=0);
 
     void initializeGL();
     void paintEvent(QPaintEvent* event);
@@ -36,6 +38,9 @@ public slots:
     void setMeshScale(int factor);
     void optimizeMesh();
     void generateMold();
+    void updateModelView(int state);
+    void updateBboxView(int state);
+    void updateMoldView(int state);
 
 protected:
     void mousePressEvent(QMouseEvent* event);
@@ -61,6 +66,7 @@ private:
     GLMesh* glMold;
     Mesh* mesh;
     Backdrop* backdrop;
+    EditorPanel* panel;
 
     QVector3D center;
     float scale;
@@ -71,6 +77,9 @@ private:
     float meshRotateX, meshRotateY, meshRotateZ;
     float meshScale = 1;
     bool glmoldGenerated = false;
+    bool modelView = true;
+    bool bboxView = true;
+    bool moldView = true;
 
     QPoint mouse_pos;
     QString status;
