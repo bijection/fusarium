@@ -416,23 +416,16 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
     std::vector<Vector3f> cutoutVerts = cutout.first;
     std::vector<GLuint> cutoutFaces = cutout.second;
 
-    Eigen::MatrixXd model1VM, blockVM, model2VM, cutoutVM, finalVM;
-    // model1 and model2 are translated versions of the same mesh
-    // so they can share the same face matrix
-    Eigen::MatrixXi modelFM, blockFM, cutoutFM, finalFM;
+    // rolled back CSG to non-tree version
+    // because for some reason the CSG tree gave holes
+    Eigen::MatrixXd modelVM, blockVM, cutoutVM, minus1VM, minus2VM, finalVM;
+    Eigen::MatrixXi modelFM, blockFM, cutoutFM, minus1FM, minus2FM, finalFM;
 
-    model1VM = Eigen::MatrixXd(vertices.size() / 3, 3);
-    model2VM = Eigen::MatrixXd(vertices.size() / 3, 3);
+    modelVM = Eigen::MatrixXd(vertices.size() / 3, 3);
     for (size_t i = 0; i < vertices.size()/3; i++) {
-        model1VM(i, 0) = vertices[3*i];
-        model1VM(i, 1) = vertices[3*i+1];
-        model1VM(i, 2) = vertices[3*i+2];
-
-        Vector3f v = m * Vector3f(vertices[3*i], vertices[3*i+1], vertices[3*i+2]);
-        Vector3f w = minv * Vector3f(v[0], v[1] + (isTop ? -1 : 1) * zThickness/meshScale, v[2]);
-        model2VM(i,0) = w[0];
-        model2VM(i,1) = w[1];
-        model2VM(i,2) = w[2];
+        modelVM(i, 0) = vertices[3*i];
+        modelVM(i, 1) = vertices[3*i+1];
+        modelVM(i, 2) = vertices[3*i+2];
     }
 
     modelFM = Eigen::MatrixXi(indices.size() / 3, 3);
@@ -442,22 +435,27 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
         modelFM(i, 2) = indices[3*i+1];
     }
 
-    // shift up/down cutoutVerts
-    for (size_t i = 0; i < cutoutVerts.size(); i++) {
-        Vector3f v = m * cutoutVerts[i];
-        cutoutVerts[i] = minv * Vector3f(v[0], v[1] + (isTop ? -1 : 1) * zThickness/meshScale, v[2]);
-    }
-
     populateEigen(blockVerts, blockFaces, blockVM, blockFM);
     populateEigen(cutoutVerts, cutoutFaces, cutoutVM, cutoutFM);
 
-    // the final model is the result of the CSG Tree (block - model1) - (cutout - model2)
-    igl::copyleft::boolean::CSGTree M =
-        {{{blockVM, blockFM}, {model1VM, modelFM}, "m"},
-         {{cutoutVM, cutoutFM}, {model2VM, modelFM}, "m"}, "m"};
+    // rolled back CSG to non-tree version
+    // because for some reason the CSG tree gave holes
+    igl::copyleft::boolean::mesh_boolean(blockVM, blockFM, modelVM, modelFM,
+        igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS, minus1VM, minus1FM);
 
-    finalVM = M.cast_V<Eigen::MatrixXd>();
-    finalFM = M.F();
+    igl::copyleft::boolean::mesh_boolean(cutoutVM, cutoutFM, minus1VM, minus1FM,
+        igl::copyleft::boolean::MESH_BOOLEAN_TYPE_INTERSECT, minus2VM, minus2FM);
+
+    for (size_t i = 0; i < minus2VM.size()/3; i++) {
+        Vector3f v = m * Vector3f(minus2VM(i, 0), minus2VM(i, 1), minus2VM(i, 2));
+        Vector3f w = minv * Vector3f(v[0], v[1] + (isTop ? -1 : 1) * zThickness/meshScale, v[2]);
+        minus2VM(i,0) = w[0];
+        minus2VM(i,1) = w[1];
+        minus2VM(i,2) = w[2];
+    }
+
+    igl::copyleft::boolean::mesh_boolean(minus1VM, minus1FM, minus2VM, minus2FM,
+        igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS, finalVM, finalFM);
 
     std::vector<GLfloat> mold_verts = std::vector<GLfloat>();
     std::vector<GLuint> mold_faces = std::vector<GLuint>();
