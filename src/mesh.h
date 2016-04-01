@@ -34,9 +34,9 @@ private:
     std::vector<GLuint> indices;
     void fillInContour(std::vector<Vector3f> *contour, std::vector<Vector3f> *bigContour, Matrix3f m,
         std::vector<Vector3f> &new_verts, std::vector<GLuint> &new_faces);
-    std::pair<std::vector<Vector3f>, std::vector<GLuint>> generateOuterBlock(
+    std::pair<std::vector<Vector3f>, std::vector<GLuint>> generateBlock(
         std::vector<Vector3f> &cutSurfaceVerts, std::vector<GLuint> &cutSurfaceFaces,
-        bool isUpper, size_t innerContourSize, size_t outerContourSize, Matrix3f m);
+        size_t innerContourSize, size_t outerContourSize, Matrix3f m, bool isUpper);
 
     QMatrix4x4 transform;
 

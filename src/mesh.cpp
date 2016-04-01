@@ -154,7 +154,7 @@ bool Mesh::checkForOverhangs(QVector3D dir, QVector3D &qStart, QVector3D &qEnd) 
     return false;
 }
 
-std::vector<Vector3f>* expandContour(std::vector<Vector3f>* innerContour, Matrix3f m){
+std::vector<Vector3f>* expandContour(std::vector<Vector3f>* innerContour, Matrix3f m, float dist){
     using namespace ClipperLib;
     float precision = 1e8;
 
@@ -168,7 +168,7 @@ std::vector<Vector3f>* expandContour(std::vector<Vector3f>* innerContour, Matrix
 
     ClipperOffset co;
     co.AddPath(subj, jtSquare, etClosedPolygon);
-    co.Execute(solution, 1e8);
+    co.Execute(solution, dist * precision);
 
     std::vector<Vector3f> *expanded = new std::vector<Vector3f>();
     for (size_t i = 0; i < solution[0].size(); ++i) {
@@ -352,6 +352,23 @@ void Mesh::fillInContour(std::vector<Vector3f> *outerContour, std::vector<Vector
     }
 }
 
+void populateEigen(std::vector<Vector3f>& verts, std::vector<GLuint>& faces,
+    Eigen::MatrixXd& vm, Eigen::MatrixXi& fm) {
+    vm = Eigen::MatrixXd(verts.size(), 3);
+    for (size_t i = 0; i < verts.size(); i++) {
+        vm(i, 0) = verts[i][0];
+        vm(i, 1) = verts[i][1];
+        vm(i, 2) = verts[i][2];
+    }
+
+    fm = Eigen::MatrixXi(faces.size() / 3, 3);
+    for (size_t i = 0; i < faces.size()/3; i++) {
+        fm(i, 0) = faces[3*i];
+        fm(i, 1) = faces[3*i+1];
+        fm(i, 2) = faces[3*i+2];
+    }
+}
+
 std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
     Vector3f norm = Vector3f(n.x(), n.y(), n.z());
     Vector3f a, b;
@@ -371,19 +388,31 @@ std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
 
     std::vector<Vector3f>* edges = getEdges(norm);
     std::vector<Vector3f>* innerContour = sortIntoContour(edges, m);
-    std::vector<Vector3f>* outerContour = expandContour(innerContour, m);
+    std::vector<Vector3f>* middleContour = expandContour(innerContour, m, 0.5);
+    std::vector<Vector3f>* outerContour = expandContour(innerContour, m, 1);
 
     std::vector<Vector3f> cutSurfaceVerts;
     std::vector<GLuint> cutSurfaceFaces;
 
+    std::vector<Vector3f> innerSurfaceVerts;
+    std::vector<GLuint> innerSurfaceFaces;
+
     fillInContour(outerContour, innerContour, m, cutSurfaceVerts, cutSurfaceFaces);
+    fillInContour(middleContour, new std::vector<Vector3f>(), m, innerSurfaceVerts, innerSurfaceFaces);
 
     std::pair<std::vector<Vector3f>, std::vector<GLuint>> topBlock
-        = generateOuterBlock(cutSurfaceVerts, cutSurfaceFaces, true,
-        innerContour->size(), outerContour->size(), m);
+        = generateBlock(cutSurfaceVerts, cutSurfaceFaces,
+        innerContour->size(), outerContour->size(), m, true);
+
+    std::pair<std::vector<Vector3f>, std::vector<GLuint>> topCutout
+        = generateBlock(innerSurfaceVerts, innerSurfaceFaces,
+        0, middleContour->size(), m, true);
 
     std::vector<Vector3f> topBlockVerts = topBlock.first;
     std::vector<GLuint> topBlockFaces = topBlock.second;
+
+    std::vector<Vector3f> topCutoutVerts = topCutout.first;
+    std::vector<GLuint> topCutoutFaces = topCutout.second;
 
     // std::vector<Vector3f> botBlockVerts;
     // std::vector<GLuint> botBlockFaces;
@@ -414,54 +443,61 @@ std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
 
     // f.close();
 
-    Eigen::MatrixXd VA, VB, VC;
-    Eigen::MatrixXi FA, FB, FC;
+    Eigen::MatrixXd modelVM, topBlockVM, topCutoutVM, topMinus1VM, topMinus2VM, topFinalVM;
+    Eigen::MatrixXi modelFM, topBlockFM, topCutoutFM, topMinus1FM, topMinus2FM, topFinalFM;
 
-    VA = Eigen::MatrixXd(topBlockVerts.size(), 3);
-    for (size_t i = 0; i < topBlockVerts.size(); i++) {
-        VA(i, 0) = topBlockVerts[i][0];
-        VA(i, 1) = topBlockVerts[i][1];
-        VA(i, 2) = topBlockVerts[i][2];
-    }
-
-    FA = Eigen::MatrixXi(topBlockFaces.size() / 3, 3);
-    for (size_t i = 0; i < topBlockFaces.size()/3; i++) {
-        FA(i, 0) = topBlockFaces[3*i];
-        FA(i, 1) = topBlockFaces[3*i+1];
-        FA(i, 2) = topBlockFaces[3*i+2];
-    }
-    VB = Eigen::MatrixXd(vertices.size() / 3, 3);
+    modelVM = Eigen::MatrixXd(vertices.size() / 3, 3);
     for (size_t i = 0; i < vertices.size()/3; i++) {
-        VB(i, 0) = vertices[3*i];
-        VB(i, 1) = vertices[3*i+1];
-        VB(i, 2) = vertices[3*i+2];
+        modelVM(i, 0) = vertices[3*i];
+        modelVM(i, 1) = vertices[3*i+1];
+        modelVM(i, 2) = vertices[3*i+2];
     }
 
-    FB = Eigen::MatrixXi(indices.size() / 3, 3);
+    modelFM = Eigen::MatrixXi(indices.size() / 3, 3);
     for (size_t i = 0; i < indices.size()/3; i++) {
-        FB(i, 0) = indices[3*i];
-        FB(i, 1) = indices[3*i+2];
-        FB(i, 2) = indices[3*i+1];
+        modelFM(i, 0) = indices[3*i];
+        modelFM(i, 1) = indices[3*i+2];
+        modelFM(i, 2) = indices[3*i+1];
     }
 
-    igl::copyleft::boolean::mesh_boolean(VA,FA,VB,FB,
-        igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS,
-        VC,FC);
+    populateEigen(topBlockVerts, topBlockFaces, topBlockVM, topBlockFM);
+    populateEigen(topCutoutVerts, topCutoutFaces, topCutoutVM, topCutoutFM);
+
+    qDebug() << "first one";
+    igl::copyleft::boolean::mesh_boolean(topBlockVM, topBlockFM, modelVM, modelFM,
+        igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS, topMinus1VM, topMinus1FM);
+
+    qDebug() << "second one";
+    igl::copyleft::boolean::mesh_boolean(topCutoutVM, topCutoutFM, topMinus1VM, topMinus1FM,
+        igl::copyleft::boolean::MESH_BOOLEAN_TYPE_INTERSECT, topMinus2VM, topMinus2FM);
+
+    for (size_t i = 0; i < topMinus2VM.size()/3; i++) {
+        Vector3f v = m * Vector3f(topMinus2VM(i, 0), topMinus2VM(i, 1), topMinus2VM(i, 2));
+        Vector3f w = minv * Vector3f(v[0], v[1]-0.05, v[2]);
+        topMinus2VM(i,0) = w[0];
+        topMinus2VM(i,1) = w[1];
+        topMinus2VM(i,2) = w[2];
+    }
+
+
+    qDebug() << "third one";
+    igl::copyleft::boolean::mesh_boolean(topMinus1VM, topMinus1FM, topMinus2VM, topMinus2FM,
+        igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS, topFinalVM, topFinalFM);
 
     std::vector<GLfloat> mold_verts = std::vector<GLfloat>();
     std::vector<GLuint> mold_faces = std::vector<GLuint>();
-    for (long i = 0; i < VC.rows(); ++i)
+    for (long i = 0; i < topFinalVM.rows(); ++i)
     {
-        mold_verts.push_back(VC(i,0));
-        mold_verts.push_back(VC(i,1));
-        mold_verts.push_back(VC(i,2));
+        mold_verts.push_back(topFinalVM(i,0));
+        mold_verts.push_back(topFinalVM(i,1));
+        mold_verts.push_back(topFinalVM(i,2));
     }
 
-    for (long i = 0; i < FC.rows(); ++i)
+    for (long i = 0; i < topFinalFM.rows(); ++i)
     {
-        mold_faces.push_back(FC(i,0));
-        mold_faces.push_back(FC(i,1));
-        mold_faces.push_back(FC(i,2));
+        mold_faces.push_back(topFinalFM(i,0));
+        mold_faces.push_back(topFinalFM(i,1));
+        mold_faces.push_back(topFinalFM(i,2));
     }
 
     std::ofstream f;
@@ -495,9 +531,9 @@ std::pair<Mesh*,Mesh*> Mesh::generateMolds(QVector3D n) {
     return std::make_pair(topMold, bottomMold);
 }
 
-std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateOuterBlock(
+std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateBlock(
     std::vector<Vector3f> &cutSurfaceVerts, std::vector<GLuint> &cutSurfaceFaces,
-    bool isUpper, size_t innerContourSize, size_t outerContourSize, Matrix3f m) {
+    size_t innerContourSize, size_t outerContourSize, Matrix3f m, bool isUpper) {
 
     // to orient vertices correctly
     int i1 = isUpper ? 1 : 2;
@@ -521,11 +557,13 @@ std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateOuterBlock(
 
     Matrix3f minv = m.inverse();
 
+    float zOffset = 0.2;
+
     // fill in flat bottom
     for(size_t i = 0; i < cutSurfaceVerts_size; i++){
         Vector2f v2d = (m * cutSurfaceVerts[i]).xz();
         Vector3f flatCoords = minv * Vector3f(v2d[0],
-            (isUpper ? -5 : 5) ,
+            (isUpper ? bbox.zmin - zOffset : bbox.zmax + zOffset) ,
             v2d[1]);
         blockVerts.push_back(flatCoords);
     }
