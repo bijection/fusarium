@@ -38,6 +38,7 @@ public slots:
     void setMeshScale(int factor);
     void optimizeMesh();
     void generateMold();
+    void exportSTL();
     void updateModelView(int state);
     void updateBboxView(int state);
     void updateMoldView(int state);
@@ -65,6 +66,7 @@ private:
     GLMesh* glmesh;
     GLMesh* glMold;
     Mesh* mesh;
+    Mesh* mold_mesh;
     Backdrop* backdrop;
     EditorPanel* panel;
 

@@ -130,7 +130,7 @@ QGroupBox *EditorPanel::createParametersGroup()
 
     moldWidth = 6;
     moldWidthSlider = new QSlider(Qt::Horizontal);
-    moldWidthSlider->setRange(60, 100);
+    moldWidthSlider->setRange(0, 100);
     moldWidthSlider->setValue(moldWidth * 10);
     moldWidthSlider->setTickPosition(QSlider::TicksBelow);
     moldWidthSlider->setTickInterval(5);

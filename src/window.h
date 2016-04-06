@@ -30,6 +30,7 @@ public slots:
 private:
     QAction* const open_action;
     QAction* const about_action;
+    QAction* const export_action;
     QAction* const quit_action;
     void initWidgets(QGridLayout* layout);
 

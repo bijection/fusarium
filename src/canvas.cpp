@@ -134,6 +134,10 @@ void Canvas::updateMoldView(int state) {
     update();
 }
 
+void Canvas::exportSTL() {
+    mold_mesh->exportSTL();
+}
+
 void Canvas::generateMold() {
     glmoldGenerated = false;
     update();
@@ -143,9 +147,11 @@ void Canvas::generateMold() {
     m.rotate(meshRotateY, QVector3D(0, 1, 0));
     m.rotate(meshRotateZ, QVector3D(0, 0, 1));
 
-    glMold = new GLMesh(mesh->generateMold(QVector3D(0,0,1) * m, meshScale,
+    mold_mesh = mesh->generateMold(QVector3D(0,0,1) * m, meshScale,
         panel->zThickness, panel->moldWidth, panel->connectors,
-        (panel->moldCombo->currentIndex() == 0)));
+        (panel->moldCombo->currentIndex() == 0));
+
+    glMold = new GLMesh(mold_mesh);
     glmoldGenerated = true;
     update();
 }

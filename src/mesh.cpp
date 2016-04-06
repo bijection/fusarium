@@ -11,6 +11,7 @@
 
 #include <igl/copyleft/boolean/mesh_boolean.h>
 #include <igl/copyleft/boolean/CSGTree.h>
+#include <igl/writeSTL.h>
 #include <Eigen/Core>
 
 
@@ -159,6 +160,8 @@ std::vector<Vector3f>* expandContour(std::vector<Vector3f>* innerContour, Matrix
     using namespace ClipperLib;
     float precision = 1e10;
 
+    qDebug() << "expanding contour";
+
     Path subj;
     Paths solution;
 
@@ -171,7 +174,8 @@ std::vector<Vector3f>* expandContour(std::vector<Vector3f>* innerContour, Matrix
     co.AddPath(subj, jtSquare, etClosedPolygon);
     co.Execute(solution, dist * precision);
 
-    std::vector<Vector3f> *expanded = new std::vector<Vector3f>();
+    std::vector<Vector3f> expanded;
+
     for (size_t i = 0; i < solution[0].size(); ++i) {
 
         Vector2f point = Vector2f(solution[0][i].X / precision, solution[0][i].Y / precision);
@@ -189,10 +193,29 @@ std::vector<Vector3f>* expandContour(std::vector<Vector3f>* innerContour, Matrix
             }
         }
 
-        expanded->push_back(m.inverse() * Vector3f(solution[0][i].X / precision, closestY, solution[0][i].Y/ precision));
+        expanded.push_back(Vector3f(solution[0][i].X / precision, closestY, solution[0][i].Y/ precision));
     }
 
-    return expanded;
+    qDebug() << "done";
+    qDebug() << "blurring contour";
+
+    std::vector<Vector3f> *blurred = new std::vector<Vector3f>();
+
+    size_t expanded_size = expanded.size();
+    for (size_t i = 0; i < expanded_size; ++i) {
+        Vector3f blurred_point =(
+              expanded[(i-2+expanded_size)%expanded_size]
+            + expanded[(i-1+expanded_size)%expanded_size]
+            + expanded[(i+0+expanded_size)%expanded_size]
+            + expanded[(i+1+expanded_size)%expanded_size]
+            + expanded[(i+2+expanded_size)%expanded_size])/5;
+        
+        blurred->push_back(m.inverse() * blurred_point);
+    }
+
+    qDebug() << "done";
+
+    return blurred;
 }
 
 void mark_domains(CDT& ct, CDT::Face_handle start, int index, std::list<CDT::Edge>& border) {
@@ -473,7 +496,13 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
         mold_faces.push_back(finalFM(i,2));
     }
 
-    // what STL export might look like
+    // igl::writeSTL("mold.stl",mold_verts,mold_faces,);
+
+
+    return new Mesh(mold_verts, mold_faces);
+}
+
+void Mesh::exportSTL(){
     std::ofstream f;
     f.open ("test.stl");
     qDebug() << " opening ";
@@ -482,14 +511,14 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
 
         f << "solid test" << std::endl;
 
-        for (GLuint i = 0; i < mold_faces.size(); i+= 3) {
+        for (GLuint i = 0; i < indices.size(); i+= 3) {
             f << "facet normal 0 0 0" << std::endl;
             f << "  outer loop" << std::endl;
             for (GLuint j = 0; j < 3; j++) {
-                GLuint idx = mold_faces[i + j];
-                GLfloat x = mold_verts[3*idx];
-                GLfloat y = mold_verts[3*idx+1];
-                GLfloat z = mold_verts[3*idx+2];
+                GLuint idx = indices[i + j];
+                GLfloat x = vertices[3*idx];
+                GLfloat y = vertices[3*idx+1];
+                GLfloat z = vertices[3*idx+2];
                 f << "    vertex " << x << " " << y << " " << z << std::endl;
             }
             f << "  endloop" << std::endl;
@@ -498,8 +527,6 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
     }
 
     f.close();
-
-    return new Mesh(mold_verts, mold_faces);
 }
 
 std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateBlock(

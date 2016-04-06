@@ -11,6 +11,7 @@
 Window::Window(QWidget *parent) :
     QMainWindow(parent),
     open_action(new QAction("Open", this)),
+    export_action(new QAction("Export", this)),
     about_action(new QAction("About", this)),
     quit_action(new QAction("Quit", this))
 
@@ -33,6 +34,11 @@ Window::Window(QWidget *parent) :
     QObject::connect(open_action, &QAction::triggered,
                      this, &Window::on_open);
 
+    export_action->setShortcut(QKeySequence::Save);
+    QObject::connect(export_action, SIGNAL(triggered()),
+                     canvas, SLOT(exportSTL()));
+
+
     quit_action->setShortcut(QKeySequence::Quit);
     QObject::connect(quit_action, &QAction::triggered,
                      this, &Window::close);
@@ -42,6 +48,7 @@ Window::Window(QWidget *parent) :
 
     auto file_menu = menuBar()->addMenu("File");
     file_menu->addAction(open_action);
+    file_menu->addAction(export_action);
     file_menu->addAction(quit_action);
 
     auto help_menu = menuBar()->addMenu("Help");
