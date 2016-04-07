@@ -50,6 +50,47 @@ Mesh::Mesh(std::vector<GLfloat> v, std::vector<GLuint> i)
     // Nothing to do here
 }
 
+void Mesh::addCylinderToMesh(Matrix3f minv, Vector2f xzCenter, float yMin, float yMax, float radius,
+    std::vector<Vector3f> &vertices, std::vector<GLuint> &faces) {
+    size_t offset = vertices.size();
+    int n = 16;
+    // push vertices
+    for (int i = 0; i < n; i++) {
+        Vector2f coords = xzCenter + radius * Vector2f(sin(2 * M_PI * i / n), cos(2 * M_PI * i / n));
+        Vector3f top = minv * Vector3f(coords.x(), yMax, coords.y());
+        Vector3f bot = minv * Vector3f(coords.x(), yMin, coords.y());
+        vertices.push_back(top);
+        vertices.push_back(bot);
+    }
+
+    // build top and bottom faces
+    for (size_t i = 1; i < n; i++) {
+        faces.push_back(offset + 0);
+        faces.push_back(offset + 2*i);
+        faces.push_back(offset + 2*i+2);
+        faces.push_back(offset + 1);
+        faces.push_back(offset + 2*i+3);
+        faces.push_back(offset + 2*i+1);
+    }
+
+    // build side faces
+    for (size_t i = 0; i < n-1; i++) {
+        faces.push_back(offset + 2*i);
+        faces.push_back(offset + 2*i+1);
+        faces.push_back(offset + 2*i+3);
+        faces.push_back(offset + 2*i);
+        faces.push_back(offset + 2*i+3);
+        faces.push_back(offset + 2*i+2);
+    }
+
+    faces.push_back(offset + 2*n-2);
+    faces.push_back(offset + 2*n-1);
+    faces.push_back(offset + 1);
+    faces.push_back(offset + 2*n-2);
+    faces.push_back(offset + 1);
+    faces.push_back(offset + 0);
+}
+
 void Mesh::setTransform(float rotateX, float rotateY, float rotateZ)
 {
     QVector3D v0, v1;
@@ -209,7 +250,7 @@ std::vector<Vector3f>* expandContour(std::vector<Vector3f>* innerContour, Matrix
             + expanded[(i+0+expanded_size)%expanded_size]
             + expanded[(i+1+expanded_size)%expanded_size]
             + expanded[(i+2+expanded_size)%expanded_size])/5;
-        
+
         blurred->push_back(m.inverse() * blurred_point);
     }
 
@@ -497,7 +538,6 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
     }
 
     // igl::writeSTL("mold.stl",mold_verts,mold_faces,);
-
 
     return new Mesh(mold_verts, mold_faces);
 }
