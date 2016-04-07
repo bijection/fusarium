@@ -435,7 +435,7 @@ void populateEigen(std::vector<Vector3f>& verts, std::vector<GLuint>& faces,
 }
 
 Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
-        float moldWidth, int connectors, bool isTop) {
+        float moldWidth, int connectorSpacing, bool isTop) {
     Vector3f norm = Vector3f(n.x(), n.y(), n.z());
     Vector3f a, b;
     if (n.x() <= n.y() && n.x() <= n.z()) {
@@ -522,17 +522,18 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
     igl::copyleft::boolean::mesh_boolean(minus1VM, minus1FM, minus2VM, minus2FM,
         igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS, preHoleVM, preHoleFM);
 
-    
+
     std::vector<Vector3f> holeVertices = std::vector<Vector3f>();
     std::vector<GLuint> holeIndices = std::vector<GLuint>();
 
 
     float dist = 0;
     for(size_t i = 1; i < holeGuideContour->size(); i++){
-        if(dist > 25){
+        if(dist > connectorSpacing){
             qDebug() << dist;
-            dist -= 25;
-            addCylinderToMesh(m.inverse(), (m*(*holeGuideContour)[i]).xz(), -100, 100, 2.55, 
+            dist -= connectorSpacing;
+            addCylinderToMesh(m.inverse(), (m*(*holeGuideContour)[i]).xz(),
+                -100/meshScale, 100/meshScale, 2.55/meshScale,
                 holeVertices, holeIndices);
         }
         dist += (m*((*holeGuideContour)[i - 1] - (*holeGuideContour)[i])).xz().abs();

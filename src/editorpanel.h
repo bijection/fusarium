@@ -24,7 +24,7 @@ public:
 
     float zThickness;
     float moldWidth;
-    int connectors;
+    int connectorSpacing;
 
 public slots:
     void updateBboxLabels(float x, float y, float z);

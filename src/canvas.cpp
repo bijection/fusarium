@@ -148,7 +148,7 @@ void Canvas::generateMold() {
     m.rotate(meshRotateZ, QVector3D(0, 0, 1));
 
     mold_mesh = mesh->generateMold(QVector3D(0,0,1) * m, meshScale,
-        panel->zThickness, panel->moldWidth, panel->connectors,
+        panel->zThickness, panel->moldWidth, panel->connectorSpacing,
         (panel->moldCombo->currentIndex() == 0));
 
     glMold = new GLMesh(mold_mesh);

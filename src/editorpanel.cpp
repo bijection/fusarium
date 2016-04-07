@@ -122,35 +122,35 @@ QGroupBox *EditorPanel::createParametersGroup()
     zThicknessSlider->setTickInterval(5);
 
     zThicknessLabel = new QLabel(tr("2.0") + unit);
-    zThicknessLabel->setMinimumSize(35,1);
+    zThicknessLabel->setMinimumSize(50,1);
 
     QBoxLayout *zThicknessRow = new QBoxLayout(QBoxLayout::RightToLeft);
     zThicknessRow->addWidget(zThicknessLabel);
     zThicknessRow->addWidget(zThicknessSlider);
 
-    moldWidth = 6;
+    moldWidth = 19;
     moldWidthSlider = new QSlider(Qt::Horizontal);
-    moldWidthSlider->setRange(0, 100);
+    moldWidthSlider->setRange(0, 400);
     moldWidthSlider->setValue(moldWidth * 10);
     moldWidthSlider->setTickPosition(QSlider::TicksBelow);
-    moldWidthSlider->setTickInterval(5);
+    moldWidthSlider->setTickInterval(40);
 
-    moldWidthLabel = new QLabel(tr("6.0") + unit);
-    moldWidthLabel->setMinimumSize(35,1);
+    moldWidthLabel = new QLabel(tr("19.0") + unit);
+    moldWidthLabel->setMinimumSize(50,1);
 
     QBoxLayout *moldWidthRow = new QBoxLayout(QBoxLayout::RightToLeft);
     moldWidthRow->addWidget(moldWidthLabel);
     moldWidthRow->addWidget(moldWidthSlider);
 
-    connectors = 5;
+    connectorSpacing = 25;
     connectorsSlider = new QSlider(Qt::Horizontal);
-    connectorsSlider->setRange(3, 10);
-    connectorsSlider->setValue(connectors);
+    connectorsSlider->setRange(10, 50);
+    connectorsSlider->setValue(connectorSpacing);
     connectorsSlider->setTickPosition(QSlider::TicksBelow);
-    connectorsSlider->setTickInterval(1);
+    connectorsSlider->setTickInterval(5);
 
-    connectorsLabel = new QLabel(tr("5"));
-    connectorsLabel->setMinimumSize(35,1);
+    connectorsLabel = new QLabel(tr("25") + unit);
+    connectorsLabel->setMinimumSize(50,1);
 
     QBoxLayout *connectorsRow = new QBoxLayout(QBoxLayout::RightToLeft);
     connectorsRow->addWidget(connectorsLabel);
@@ -161,7 +161,7 @@ QGroupBox *EditorPanel::createParametersGroup()
     layout->addRow(new QLabel(tr("Mold")), moldCombo);
     layout->addRow(new QLabel(tr("Z thickness")), zThicknessRow);
     layout->addRow(new QLabel(tr("Mold width")), moldWidthRow);
-    layout->addRow(new QLabel(tr("Connectors")), connectorsRow);
+    layout->addRow(new QLabel(tr("Spacing")), connectorsRow);
     layout->addRow(generateMoldBtn);
 
     groupBox->setLayout(layout);
@@ -252,8 +252,8 @@ void EditorPanel::updateMoldWidth(int width) {
 }
 
 void EditorPanel::updateConnectors(int num) {
-    connectors = num;
-    connectorsLabel->setText(QString::number(connectors));
+    connectorSpacing = num;
+    connectorsLabel->setText(QString::number(connectorSpacing) + unit);
 }
 
 void EditorPanel::updateBboxUnits(int index) {
