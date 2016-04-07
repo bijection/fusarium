@@ -64,7 +64,7 @@ void Mesh::addCylinderToMesh(Matrix3f minv, Vector2f xzCenter, float yMin, float
     }
 
     // build top and bottom faces
-    for (size_t i = 1; i < n; i++) {
+    for (size_t i = 1; i < n-1; i++) {
         faces.push_back(offset + 0);
         faces.push_back(offset + 2*i);
         faces.push_back(offset + 2*i+2);
@@ -455,6 +455,7 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
     std::vector<Vector3f>* edges = getEdges(norm);
     std::vector<Vector3f>* innerContour = sortIntoContour(edges, m);
     std::vector<Vector3f>* middleContour = expandContour(innerContour, m, 0.3 * moldWidth/meshScale);
+    std::vector<Vector3f>* holeGuideContour = expandContour(middleContour, m, 0.5 * moldWidth/meshScale);
     std::vector<Vector3f>* outerContour = expandContour(innerContour, m, 1.3 * moldWidth/meshScale);
 
     std::vector<Vector3f> cutSurfaceVerts;
@@ -482,8 +483,8 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
 
     // rolled back CSG to non-tree version
     // because for some reason the CSG tree gave holes
-    Eigen::MatrixXd modelVM, blockVM, cutoutVM, minus1VM, minus2VM, finalVM;
-    Eigen::MatrixXi modelFM, blockFM, cutoutFM, minus1FM, minus2FM, finalFM;
+    Eigen::MatrixXd modelVM, blockVM, cutoutVM, minus1VM, minus2VM, preHoleVM, holeVM, finalVM;
+    Eigen::MatrixXi modelFM, blockFM, cutoutFM, minus1FM, minus2FM, preHoleFM, holeFM, finalFM;
 
     modelVM = Eigen::MatrixXd(vertices.size() / 3, 3);
     for (size_t i = 0; i < vertices.size()/3; i++) {
@@ -519,7 +520,52 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
     }
 
     igl::copyleft::boolean::mesh_boolean(minus1VM, minus1FM, minus2VM, minus2FM,
+        igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS, preHoleVM, preHoleFM);
+
+    
+    std::vector<Vector3f> holeVertices = std::vector<Vector3f>();
+    std::vector<GLuint> holeIndices = std::vector<GLuint>();
+
+
+    float dist = 0;
+    for(size_t i = 1; i < holeGuideContour->size(); i++){
+        if(dist > 25){
+            qDebug() << dist;
+            dist -= 25;
+            addCylinderToMesh(m.inverse(), (m*(*holeGuideContour)[i]).xz(), -100, 100, 2.55, 
+                holeVertices, holeIndices);
+        }
+        dist += (m*((*holeGuideContour)[i - 1] - (*holeGuideContour)[i])).xz().abs();
+    }
+
+
+    // holeVM = Eigen::MatrixXd(holeVertices.size(), 3);
+    // for (size_t i = 0; i < holeVertices.size(); i++) {
+    //     holeVM(i, 0) = holeVertices[i].x();
+    //     holeVM(i, 1) = holeVertices[i].y();
+    //     holeVM(i, 2) = holeVertices[i].z();
+    // }
+
+    // holeFM = Eigen::MatrixXi(holeIndices.size() / 3, 3);
+    // for (size_t i = 0; i < holeIndices.size()/3; i++) {
+    //     holeFM(i, 0) = holeIndices[3*i];
+    //     holeFM(i, 1) = holeIndices[3*i+2];
+    //     holeFM(i, 2) = holeIndices[3*i+1];
+    // }
+
+    populateEigen(holeVertices, holeIndices, holeVM, holeFM);
+    qDebug() << "holeVM " << holeVM.rows();
+    qDebug() << "holeFM " << holeFM.rows();
+
+
+    igl::copyleft::boolean::mesh_boolean(preHoleVM, preHoleFM, holeVM, holeFM,
         igl::copyleft::boolean::MESH_BOOLEAN_TYPE_MINUS, finalVM, finalFM);
+
+
+    // finalVM = holeVM;
+    // finalFM = holeFM;
+
+
 
     std::vector<GLfloat> mold_verts = std::vector<GLfloat>();
     std::vector<GLuint> mold_faces = std::vector<GLuint>();
@@ -595,7 +641,7 @@ std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateBlock(
 
     Matrix3f minv = m.inverse();
 
-    float zOffset = 0.2;
+    float zOffset = 1;
 
     // fill in flat bottom
     for(size_t i = 0; i < cutSurfaceVerts_size; i++){
