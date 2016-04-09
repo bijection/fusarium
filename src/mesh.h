@@ -40,7 +40,7 @@ private:
         std::vector<Vector3f> &vertices, std::vector<GLuint> &faces);
     std::pair<std::vector<Vector3f>, std::vector<GLuint>> generateBlock(
         std::vector<Vector3f> &cutSurfaceVerts, std::vector<GLuint> &cutSurfaceFaces,
-        size_t innerContourSize, size_t outerContourSize, Matrix3f m, bool isTop);
+        size_t innerContourSize, size_t outerContourSize, Matrix3f m, float zThickness, bool isTop);
 
     QMatrix4x4 transform;
 

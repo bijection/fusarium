@@ -469,11 +469,11 @@ Mesh* Mesh::generateMold(QVector3D n, float meshScale, float zThickness,
 
     std::pair<std::vector<Vector3f>, std::vector<GLuint>> block
         = generateBlock(cutSurfaceVerts, cutSurfaceFaces,
-        innerContour->size(), outerContour->size(), m, isTop);
+        innerContour->size(), outerContour->size(), m, zThickness, isTop);
 
     std::pair<std::vector<Vector3f>, std::vector<GLuint>> cutout
         = generateBlock(innerSurfaceVerts, innerSurfaceFaces,
-        0, middleContour->size(), m, isTop);
+        0, middleContour->size(), m, zThickness, isTop);
 
     std::vector<Vector3f> blockVerts = block.first;
     std::vector<GLuint> blockFaces = block.second;
@@ -618,7 +618,7 @@ void Mesh::exportSTL(){
 
 std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateBlock(
     std::vector<Vector3f> &cutSurfaceVerts, std::vector<GLuint> &cutSurfaceFaces,
-    size_t innerContourSize, size_t outerContourSize, Matrix3f m, bool isTop) {
+    size_t innerContourSize, size_t outerContourSize, Matrix3f m, float zThickness, bool isTop) {
 
     // to orient vertices correctly
     int i1 = isTop ? 1 : 2;
@@ -642,7 +642,7 @@ std::pair<std::vector<Vector3f>, std::vector<GLuint>> Mesh::generateBlock(
 
     Matrix3f minv = m.inverse();
 
-    float zOffset = 1;
+    float zOffset = zThickness + 1.0;
 
     // fill in flat bottom
     for(size_t i = 0; i < cutSurfaceVerts_size; i++){
