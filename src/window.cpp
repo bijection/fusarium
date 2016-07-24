@@ -16,7 +16,7 @@ Window::Window(QWidget *parent) :
     quit_action(new QAction("Quit", this))
 
 {
-    setWindowTitle("Fac^2 Editor");
+    setWindowTitle("FabSquare Editor");
     setAcceptDrops(true);
 
     QFile styleFile(":/qt/style.qss");
@@ -101,13 +101,10 @@ void Window::on_open()
 void Window::on_about()
 {
     QMessageBox::about(this, "",
-        "<p align=\"center\"><b>fstl</b></p>"
-        "<p>A fast viewer for <code>.stl</code> files.<br>"
-        "<a href=\"https://github.com/mkeeter/fstl\""
-        "   style=\"color: #93a1a1;\">https://github.com/mkeeter/fstl</a></p>"
-        "<p>© 2014 Matthew Keeter<br>"
-        "<a href=\"mailto:matt.j.keeter@gmail.com\""
-        "   style=\"color: #93a1a1;\">matt.j.Keeterr@gmail.com</a></p>");
+        "<p align=\"center\"><b>FabSquare Editor</b></p>"
+        "<p>A editor utility for creating FabSquare molds</p>"
+        "<p>Adapted from <a href=\"https://github.com/mkeeter/fstl\""
+        "   style=\"color: #93a1a1;\">https://github.com/mkeeter/fstl</a> by Matthew Keeter</p>");
 }
 
 void Window::on_ascii_stl()
@@ -161,11 +158,11 @@ bool Window::load_stl(const QString& filename)
     connect(loader, &Loader::finished,
             canvas, &Canvas::clear_status);
 
-    if (filename[0] != ':')
-    {
-        connect(loader, &Loader::loaded_file,
-                  this, &Window::setWindowTitle);
-    }
+    // if (filename[0] != ':')
+    // {
+    //     connect(loader, &Loader::loaded_file,
+    //               this, &Window::setWindowTitle);
+    // }
 
     loader->start();
     return true;

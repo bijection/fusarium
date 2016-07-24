@@ -5,15 +5,13 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>CFBundleIconFile</key>
-	<string>fstl.icns</string>
+	<string>fabsquare.icns</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleGetInfoString</key>
-	<string>A minimal fast STL viewer</string>
+	<string>An editor for generating FabSquare molds</string>
 	<key>CFBundleExecutable</key>
-	<string>fstl</string>
-	<key>CFBundleIdentifier</key>
-    <string>com.impraxical.fstl</string>
+	<string>FabSquare Editor</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

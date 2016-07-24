@@ -5,6 +5,6 @@
         <file>mesh.vert</file>
         <file>quad.frag</file>
         <file>quad.vert</file>
-        <file>sphere.stl</file>
+        <file>hand.stl</file>
     </qresource>
 </RCC>

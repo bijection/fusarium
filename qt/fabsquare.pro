@@ -1,6 +1,6 @@
 QT += core gui opengl widgets
 
-TARGET = fstl
+TARGET = "FabSquare Editor"
 TEMPLATE = app
 
 # Bump optimization up to -O3 in release builds
@@ -57,11 +57,11 @@ RESOURCES += \
 
 macx {
     QMAKE_INFO_PLIST = ../app/Info.plist
-    ICON = ../app/fstl.icns
+    ICON = ../app/fabsquare.icns
 }
 
 win32 {
-    RC_FILE = ../exe/fstl.rc
+    RC_FILE = ../exe/fabsquare.rc
 }
 
 static {

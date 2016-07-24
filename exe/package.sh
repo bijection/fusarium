@@ -1,3 +1,3 @@
 cd ..
-cp build/release/fstl.exe .
-/c/Program\ Files/7-Zip/7z.exe a fstl_win.zip fstl.exe README.md
+cp build/release/FabSquare\ Editor.exe .
+/c/Program\ Files/7-Zip/7z.exe a FabSquare\ Editor_win.zip FabSquare\ Editor.exe README.md
